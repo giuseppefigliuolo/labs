@@ -12,11 +12,13 @@ const pass = (uniforms: Record<string, THREE.IUniform>, fragmentShader: string) 
  * the effect and are drawn on top of the composite with fresh depth.
  */
 export class PostFX {
-  private scene = target(4)
+  private scene: THREE.WebGLRenderTarget
   private a = target()
   private b = target()
   private w = 1
   private h = 1
+  private fw = 1
+  private fh = 1
   private bright = pass({ tMap: { value: null }, uTh: { value: 0.62 }, uTx: { value: new THREE.Vector2(1, 1) } }, BRIGHT_F)
   private blur = pass({ tMap: { value: null }, uDir: { value: new THREE.Vector2() } }, BLUR_F)
   private comp = pass({ tScene: { value: null }, tBloom: { value: null }, uBloom: { value: 1 }, uCA: { value: 0 } }, COMP_F)
@@ -24,13 +26,22 @@ export class PostFX {
   private quadScene = new THREE.Scene()
   private quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.comp)
 
-  constructor() {
+  constructor(samples = 4) {
+    this.scene = target(samples)
     this.quad.frustumCulled = false
     this.quadScene.add(this.quad)
   }
 
+  /** MSAA sample count of the scene target (recreated, since three can't change it in place). */
+  setSamples(samples: number) {
+    if (this.scene.samples === samples) return
+    this.scene.dispose()
+    this.scene = target(samples)
+    this.scene.setSize(this.fw, this.fh)
+  }
+
   setSize(W: number, H: number, pr: number) {
-    const w = Math.max(1, Math.floor(W * pr)), h = Math.max(1, Math.floor(H * pr))
+    const w = this.fw = Math.max(1, Math.floor(W * pr)), h = this.fh = Math.max(1, Math.floor(H * pr))
     this.scene.setSize(w, h)
     this.w = Math.max(1, w >> 2); this.h = Math.max(1, h >> 2)
     this.a.setSize(this.w, this.h); this.b.setSize(this.w, this.h)

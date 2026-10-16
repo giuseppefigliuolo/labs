@@ -1,8 +1,10 @@
+import { useShallow } from 'zustand/react/shallow'
 import { useUI } from '../store'
 
 /** "Perfetto! +2" and "Combo ×n" labels that pop at the slice position. */
 export function Toasts() {
-  const s = useUI()
+  // only the label fields: the full store changes on every hit (score, found…)
+  const s = useUI(useShallow(u => ({ perfOn: u.perfOn, perfX: u.perfX, perfY: u.perfY, combo: u.combo, comboPts: u.comboPts, comboX: u.comboX, comboY: u.comboY, comboOn: u.comboOn })))
   return (
     <>
       <div className="float-anchor" style={{ left: s.perfX, top: s.perfY }}>

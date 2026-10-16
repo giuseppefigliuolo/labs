@@ -15,6 +15,16 @@ export const loadImg = (src: string) =>
     i.src = src
   })
 
+/** Downscales an image so its longest side is at most `max` px (logos are drawn far smaller than their source). */
+export function fitImage(img: HTMLImageElement, max = 1024): HTMLImageElement | HTMLCanvasElement {
+  const k = max / Math.max(img.width, img.height)
+  if (k >= 1) return img
+  const [c, g] = canvas(Math.round(img.width * k), Math.round(img.height * k))
+  g.imageSmoothingQuality = 'high'
+  g.drawImage(img, 0, 0, c.width, c.height)
+  return c
+}
+
 /** Soft white radial falloff, used for glows, sparks and dust. */
 export function radialCanvas() {
   const [c, g] = canvas(128)

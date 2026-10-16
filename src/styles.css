@@ -240,3 +240,9 @@ a { color: #ff6a00; text-decoration: none }
 .gap-4 { gap: 4px }
 .gap-12 { gap: 12px }
 .pop-essenziale .pop-stack-label { color: #767676 }
+
+/* ============ Low-end devices (set by the engine, see game/quality.ts) ============ */
+/* backdrop-filter over a canvas that redraws every frame is re-blurred every frame */
+.labs--lite .scrim, .labs--lite .screen--over, .labs--lite .settings, .labs--lite .pop-vetro, .labs--lite .pop-vetro .pop-close { backdrop-filter: none; -webkit-backdrop-filter: none }
+.labs--lite .scrim { background: rgba(20,12,7,.72) }
+.labs--lite .screen--over { background: rgba(20,12,7,.78) }

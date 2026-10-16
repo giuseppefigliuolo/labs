@@ -4,8 +4,9 @@ import { BITROCK, PROJECTS, type Project } from '../data/projects'
 import { cfg, saveBest, saveMuted, useUI, type PopAnim, type UIState } from '../store'
 import { Sfx } from './audio'
 import { PostFX } from './post'
+import { Quality } from './quality'
 import { HALF_F, HALF_V, LOGO_F, LOGO_V, SHELL_F, SHELL_V } from './shaders'
-import { bitrockCanvas, bugCanvas, fleshCanvas, fleshVariant, loadImg, radialCanvas, wordmark } from './textures'
+import { bitrockCanvas, bugCanvas, fitImage, fleshCanvas, fleshVariant, loadImg, radialCanvas, wordmark } from './textures'
 
 type EaseFn = (p: number) => number
 const ease = {
@@ -74,6 +75,15 @@ export class Engine {
   private tex: Record<string, Tex> = {}
   private dust!: THREE.Points
   private Z = new THREE.Vector3(0, 0, 1)
+  private v = new THREE.Vector3()
+  private quality = new Quality()
+  // Materials shared by every bubble/half of the same look. They are never
+  // disposed mid-game: disposing the last user of a shader makes three delete
+  // the GPU program, and the next slice would recompile it (a visible hitch).
+  private mats = new Map<string, THREE.Material>()
+  // One instance of each per-half material, compiled at startup and kept alive
+  // for the same reason.
+  private keep: THREE.Material[] = []
 
   // 2D canvases: stains under the scene, trail/drops/confetti over it
   private scan?: HTMLCanvasElement
@@ -82,6 +92,8 @@ export class Engine {
   private tctx!: CanvasRenderingContext2D
 
   // viewport
+  private rootX = 0
+  private rootY = 0
   private W = 0
   private H = 0
   private viewW = 0
@@ -132,6 +144,9 @@ export class Engine {
   private strokeHits = 0
   private lastSwoosh = 0
   private lastDir: Dir | null = null
+  private sDirty = false
+  private tDirty = false
+  private frameNo = 0
 
   private sfx = new Sfx(() => CONFIG.sound && !ui().muted, CONFIG.sliceSound)
 
@@ -154,6 +169,7 @@ export class Engine {
     window.removeEventListener('pointerup', this.onUp)
     window.removeEventListener('pointercancel', this.onUp)
     this.post?.dispose()
+    this.mats.forEach(m => m.dispose()); this.keep.forEach(m => m.dispose())
     if (this.renderer) { this.renderer.dispose(); this.renderer.domElement.remove() }
     this.scan?.remove()
     this.tcan?.remove()
@@ -178,8 +194,10 @@ export class Engine {
     try { await Promise.all([document.fonts.load('800 120px Nunito'), document.fonts.load('300 120px Nunito'), document.fonts.load('900 120px Nunito')]) } catch { /* fall back to system font */ }
     if (this.dead) return
 
-    const renderer = this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+    const q = this.quality.s
+    if (q.lite) this.root.classList.add('labs--lite')
+    const renderer = this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, stencil: false, powerPreference: 'high-performance' })
+    renderer.setPixelRatio(q.dpr)
     renderer.outputColorSpace = THREE.LinearSRGBColorSpace
     renderer.setClearColor(0x000000, 0)
     const fill = { position: 'absolute', inset: '0', width: '100%', height: '100%' }
@@ -197,15 +215,16 @@ export class Engine {
     this.camera = new THREE.PerspectiveCamera(this.fov, 1, 0.1, 100)
     this.camHome = new THREE.Vector3(0, 0, this.camZ)
     this.camBase = this.camHome.clone(); this.camLook = new THREE.Vector3()
-    this.sphereGeo = new THREE.SphereGeometry(1, 64, 48)
-    this.hemiGeo = new THREE.SphereGeometry(1, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2)
+    const seg = q.seg
+    this.sphereGeo = new THREE.SphereGeometry(1, seg, seg * 3 / 4)
+    this.hemiGeo = new THREE.SphereGeometry(1, seg, seg / 2, 0, Math.PI * 2, 0, Math.PI / 2)
     this.ringGeo = new THREE.TorusGeometry(1, 0.012, 6, 96)
     this.glowGeo = new THREE.PlaneGeometry(2.6, 2.6)
     this.discGeo = new THREE.CircleGeometry(0.97, 48)
     this.arcGeo = new THREE.TorusGeometry(1.5, 0.035, 8, 40, Math.PI / 3)
-    this.capGeo = new THREE.CircleGeometry(1.0, 64)
+    this.capGeo = new THREE.CircleGeometry(1.0, seg)
     this.radialTex = new THREE.CanvasTexture(radialCanvas())
-    try { this.post = new PostFX() } catch (e) { console.warn(e); this.post = null }
+    try { this.post = new PostFX(q.msaa) } catch (e) { console.warn(e); this.post = null }
 
     await this.buildTextures()
     if (this.dead) return
@@ -213,6 +232,9 @@ export class Engine {
 
     window.addEventListener('resize', this.onResize)
     this.resize()
+    if (CONFIG.sound) this.sfx.prepare()
+    await this.warmUp()
+    if (this.dead) return
     this.root.addEventListener('pointerdown', this.onDown)
     this.root.addEventListener('pointermove', this.onMove)
     window.addEventListener('pointerup', this.onUp); window.addEventListener('pointercancel', this.onUp)
@@ -232,7 +254,7 @@ export class Engine {
       this.tex[key] = { tex, geo: new THREE.PlaneGeometry(w, h) }
     }
     for (const p of PROJECTS) {
-      if (p.texSrc) add(p.id, await loadImg(p.texSrc))
+      if (p.texSrc) add(p.id, fitImage(await loadImg(p.texSrc)))
       else add(p.id, wordmark(p.word!, p.accent!))
     }
     add('bitrock', await bitrockCanvas(), 1.3, 1.1)
@@ -259,15 +281,48 @@ export class Engine {
     this.viewW = this.viewH * this.camera.aspect
     this.r = Math.min(this.viewW * 0.16, this.viewH * 0.09)
     this.g = this.viewH * 1.0
-    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    const rr = this.root.getBoundingClientRect(); this.rootX = rr.left; this.rootY = rr.top
+    const dpr = this.quality.s.dpr
     this.tcan!.width = W * dpr; this.tcan!.height = H * dpr; this.tctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     this.scan!.width = W * dpr; this.scan!.height = H * dpr; this.sctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     this.items.forEach(it => { if (it.float) { this.fitIntro(it); it.g.scale.setScalar(it.r) } })
     this.post?.setSize(W, H, renderer.getPixelRatio())
+    this.sDirty = this.tDirty = true
+  }
+
+  /** Applies a quality step chosen by `Quality.sample`. */
+  private applyQuality() {
+    const q = this.quality.s
+    this.post?.setSamples(q.msaa)
+    if (this.renderer!.getPixelRatio() !== q.dpr) { this.renderer!.setPixelRatio(q.dpr); this.resize() }
+  }
+
+  /**
+   * Uploads every texture and compiles every shader the game can use before
+   * the intro shows, by building (and slicing) one bubble of each kind
+   * offscreen. Otherwise each first-time spawn or slice stalls a frame or two.
+   */
+  private async warmUp() {
+    const r = this.renderer!
+    for (const p of [...PROJECTS, BITROCK]) this.flesh(p.tint, p.id)
+    this.flesh('dark', 'bug')
+    for (const t of [this.radialTex, ...Object.values(this.fleshTex), ...Object.values(this.tex).map(t => t.tex)]) r.initTexture(t)
+    const its = [this.makeItem('project', PROJECTS[0]), this.makeItem('bitrock', BITROCK), this.makeItem('bug', null)]
+    for (const it of its) { it.pos.set(0, 0, 0); this.slice(it, { x: 1, y: 0 }) }
+    try { await r.compileAsync(this.scene, this.camera) } catch (e) { console.warn(e) }
+    // drop the warm-up objects but keep their per-half materials referenced
+    for (const h of this.halves) {
+      h.g.traverse(o => { const m = (o as THREE.Mesh).material as THREE.Material | undefined; if (m && !m.userData.shared) this.keep.push(m) })
+      this.scene.remove(h.g)
+    }
+    this.halves = []; this.items = []; this.stains = []; this.drops = []
+    if (this.dead) return
+    // first post-processing frame allocates the render targets and compiles the passes
+    if (this.post) this.renderPost(); else r.render(this.scene, this.camera)
   }
 
   private renderPost() {
-    const bloom = CONFIG.bloom, ca = CONFIG.aberration
+    const on = this.quality.s.post, bloom = on ? CONFIG.bloom : 0, ca = on ? CONFIG.aberration : 0
     for (const h of this.halves) if (!h.l1) { h.g.traverse(o => o.layers.set(1)); h.l1 = true }
     this.post!.render(this.renderer!, this.scene, this.camera, {
       bloom, ca,
@@ -381,14 +436,29 @@ export class Engine {
   }
 
   // ---------- objects ----------
+  /** Cached material, shared by every object with the same look and kept until `dispose`. */
+  private shared<M extends THREE.Material>(key: string, make: () => M): M {
+    let m = this.mats.get(key) as M | undefined
+    if (!m) { m = make(); m.userData.shared = true; this.mats.set(key, m) }
+    return m
+  }
+
+  private basic(key: string, p: THREE.MeshBasicMaterialParameters) {
+    return this.shared('basic|' + key, () => new THREE.MeshBasicMaterial(p))
+  }
+
   private shellMat(tint: string, side: THREE.Side, alpha: number, danger: boolean) {
+    return this.shared(`shell|${tint}|${side}|${alpha}|${danger}`, () => this.newShellMat(tint, side, alpha, danger))
+  }
+
+  private newShellMat(tint: string, side: THREE.Side, alpha: number, danger: boolean) {
     return new THREE.ShaderMaterial({ uniforms: { uTint: { value: new THREE.Color(tint) }, uTime: this.uTime, uAlpha: { value: alpha }, uDanger: { value: danger ? 1 : 0 } }, vertexShader: SHELL_V, fragmentShader: SHELL_F, transparent: true, depthWrite: false, side })
   }
 
   private logoMesh(key: string, side: number, n?: THREE.Vector3) {
     const info = this.tex[key]
-    const mat = new THREE.ShaderMaterial({ uniforms: { uMap: { value: info.tex }, uCut: { value: new THREE.Vector2(n ? n.x : 0, n ? n.y : 0) }, uSide: { value: side }, uOpacity: { value: 1 } }, vertexShader: LOGO_V, fragmentShader: LOGO_F, transparent: true, depthWrite: false, side: THREE.DoubleSide })
-    const m = new THREE.Mesh(info.geo, mat); m.renderOrder = 2; return m
+    const make = () => new THREE.ShaderMaterial({ uniforms: { uMap: { value: info.tex }, uCut: { value: new THREE.Vector2(n ? n.x : 0, n ? n.y : 0) }, uSide: { value: side }, uOpacity: { value: 1 } }, vertexShader: LOGO_V, fragmentShader: LOGO_F, transparent: true, depthWrite: false, side: THREE.DoubleSide })
+    const m = new THREE.Mesh(info.geo, side ? make() : this.shared('logo|' + key, make)); m.renderOrder = 2; return m
   }
 
   private tintOf(type: ItemType, data: Project | null) { return type === 'bug' ? '#ff3b30' : type === 'start' ? '#ff6a00' : data!.tint }
@@ -401,14 +471,15 @@ export class Engine {
     const back = new THREE.Mesh(this.sphereGeo, this.shellMat(tint, THREE.BackSide, danger ? 0.9 : 0.45, danger)); back.renderOrder = 0
     const front = new THREE.Mesh(this.sphereGeo, this.shellMat(tint, THREE.FrontSide, 1, danger)); front.renderOrder = 3
     shell.add(back, front)
-    const glow = new THREE.Mesh(this.glowGeo, new THREE.MeshBasicMaterial({ map: this.radialTex, color: new THREE.Color(tint), transparent: true, opacity: danger ? 0.5 : (type === 'bitrock' ? 0.7 : 0.3), depthWrite: false, blending: THREE.AdditiveBlending })); glow.renderOrder = 1
+    const glowA = danger ? 0.5 : (type === 'bitrock' ? 0.7 : 0.3)
+    const glow = new THREE.Mesh(this.glowGeo, this.basic(`glow|${tint}|${glowA}`, { map: this.radialTex, color: new THREE.Color(tint), transparent: true, opacity: glowA, depthWrite: false, blending: THREE.AdditiveBlending })); glow.renderOrder = 1
     const logo = this.logoMesh(key, 0)
     g.add(shell, glow, logo)
     let spark: THREE.Mesh | null = null
-    if (!danger) { const body = new THREE.Mesh(this.sphereGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(tint).multiplyScalar(0.62), transparent: true, opacity: 0.82, depthWrite: false })); body.scale.setScalar(0.97); body.renderOrder = 0.5; g.add(body) }
+    if (!danger) { const body = new THREE.Mesh(this.sphereGeo, this.basic('body|' + tint, { color: new THREE.Color(tint).multiplyScalar(0.62), transparent: true, opacity: 0.82, depthWrite: false })); body.scale.setScalar(0.97); body.renderOrder = 0.5; g.add(body) }
     if (danger) {
-      const core = new THREE.Mesh(this.sphereGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color('#12040a'), transparent: true, opacity: 0.85, depthWrite: false })); core.scale.setScalar(0.96); core.renderOrder = 0.5; g.add(core)
-      spark = new THREE.Mesh(this.glowGeo, new THREE.MeshBasicMaterial({ map: this.radialTex, color: new THREE.Color('#ffb000'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); spark.scale.setScalar(0.25); spark.position.set(0.4, 0.95, 0.3); spark.renderOrder = 5; g.add(spark)
+      const core = new THREE.Mesh(this.sphereGeo, this.basic('core', { color: new THREE.Color('#12040a'), transparent: true, opacity: 0.85, depthWrite: false })); core.scale.setScalar(0.96); core.renderOrder = 0.5; g.add(core)
+      spark = new THREE.Mesh(this.glowGeo, this.basic('spark', { map: this.radialTex, color: new THREE.Color('#ffb000'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); spark.scale.setScalar(0.25); spark.position.set(0.4, 0.95, 0.3); spark.renderOrder = 5; g.add(spark)
     }
     g.scale.setScalar(this.r)
     this.scene.add(g)
@@ -430,7 +501,7 @@ export class Engine {
   }
 
   private removeObj(g: THREE.Object3D) {
-    g.traverse(o => { const m = (o as THREE.Mesh).material; if (m) (Array.isArray(m) ? m : [m]).forEach(x => x.dispose()) })
+    g.traverse(o => { const m = (o as THREE.Mesh).material; if (m) (Array.isArray(m) ? m : [m]).forEach(x => { if (!x.userData.shared) x.dispose() }) })
     this.scene.remove(g)
   }
   private removeItem(it: Item) { it.alive = false; this.removeObj(it.g) }
@@ -441,9 +512,10 @@ export class Engine {
     return new THREE.ShaderMaterial({ uniforms: { uTint: { value: new THREE.Color(it.tint) }, uMap: { value: info.tex }, uLogo: { value: new THREE.Vector2(info.geo.parameters.width, info.geo.parameters.height) }, uRot: { value: rot }, uMode: { value: mode }, uDanger: { value: it.danger ? 1 : 0 }, uTime: this.uTime }, vertexShader: HALF_V, fragmentShader: HALF_F })
   }
 
+  private fleshId(tint: string, key?: string) { return tint + '|' + fleshVariant(tint, key) }
+
   private flesh(tint: string, key?: string) {
-    const id = tint + '|' + fleshVariant(tint, key)
-    return this.fleshTex[id] ??= new THREE.CanvasTexture(fleshCanvas(tint, key))
+    return this.fleshTex[this.fleshId(tint, key)] ??= new THREE.CanvasTexture(fleshCanvas(tint, key))
   }
 
   private slice(it: Item, dir: Dir) {
@@ -461,11 +533,12 @@ export class Engine {
       const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(it.danger ? '#ff5a72' : '#ffffff'), transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending })
       const ring = new THREE.Mesh(this.ringGeo, ringMat); ring.rotation.x = Math.PI / 2; ring.renderOrder = 4; hemi.add(ring)
       const lh = this.logoMesh(it.key, side, n)
-      const disc = new THREE.Mesh(this.discGeo, new THREE.MeshBasicMaterial({ map: this.flesh(it.danger ? 'dark' : it.tint, it.key), transparent: true, opacity: 0.94, depthWrite: false, side: THREE.DoubleSide })); disc.rotation.x = Math.PI / 2; disc.renderOrder = 2.5; hemi.add(disc)
+      const fk = it.danger ? 'dark' : it.tint
+      const disc = new THREE.Mesh(this.discGeo, this.basic('disc|' + this.fleshId(fk, it.key), { map: this.flesh(fk, it.key), transparent: true, opacity: 0.94, depthWrite: false, side: THREE.DoubleSide })); disc.rotation.x = Math.PI / 2; disc.renderOrder = 2.5; hemi.add(disc)
       hg.add(hemi, lh)
       const axis = new THREE.Vector3(dir.x, dir.y, 0).normalize()
       hg.rotateOnWorldAxis(axis, -side * 0.6)
-      if (it.danger) { const core = new THREE.Mesh(this.hemiGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color('#12040a'), transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide })); core.quaternion.copy(hemi.quaternion); core.scale.setScalar(0.96); core.renderOrder = 0.5; hg.add(core) }
+      if (it.danger) { const core = new THREE.Mesh(this.hemiGeo, this.basic('hcore', { color: new THREE.Color('#12040a'), transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide })); core.quaternion.copy(hemi.quaternion); core.scale.setScalar(0.96); core.renderOrder = 0.5; hg.add(core) }
       this.scene.add(hg)
       const vel = it.vel.clone().multiplyScalar(0.35).add(n.clone().multiplyScalar(side * it.r * 2.4)).add(new THREE.Vector3(dir.x, dir.y, 0).multiplyScalar(it.r * 1.2))
       this.halves.push({ g: hg, vel, axis, tumble: -side * (1.2 + Math.random()), spinZ: side * (0.6 + Math.random() * 0.8), ringMat, age: 0, pos: hg.position })
@@ -481,8 +554,9 @@ export class Engine {
       const hg = new THREE.Group(); hg.position.copy(it.pos); hg.position.z += zs * it.r * 0.35; hg.scale.setScalar(it.r)
       const q = new THREE.Quaternion().setFromUnitVectors(Y, n.clone().multiplyScalar(side))
       const hemi = new THREE.Mesh(this.hemiGeo, this.halfMat(it, q, mode)); hemi.quaternion.copy(q)
-      const cap = new THREE.Mesh(this.capGeo, new THREE.MeshBasicMaterial({ map: this.flesh(it.danger ? 'dark' : it.tint, it.key), side: THREE.DoubleSide })); cap.rotation.x = Math.PI / 2; hemi.add(cap)
-      if (mode === 2) { const hull = new THREE.Mesh(this.hemiGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color('#1a0d05'), side: THREE.BackSide })); hull.scale.setScalar(1.07); hemi.add(hull) }
+      const fk = it.danger ? 'dark' : it.tint
+      const cap = new THREE.Mesh(this.capGeo, this.basic('cap|' + this.fleshId(fk, it.key), { map: this.flesh(fk, it.key), side: THREE.DoubleSide })); cap.rotation.x = Math.PI / 2; hemi.add(cap)
+      if (mode === 2) { const hull = new THREE.Mesh(this.hemiGeo, this.basic('hull', { color: new THREE.Color('#1a0d05'), side: THREE.BackSide })); hull.scale.setScalar(1.07); hemi.add(hull) }
       const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(it.danger ? '#ff5a72' : '#ffffff'), transparent: true, opacity: mode === 2 ? 0 : 1, depthWrite: false, blending: THREE.AdditiveBlending })
       const ring = new THREE.Mesh(this.ringGeo, ringMat); ring.rotation.x = Math.PI / 2; ring.renderOrder = 4; hemi.add(ring)
       hg.add(hemi)
@@ -510,11 +584,16 @@ export class Engine {
     for (let k = 0; k < n; k++) { const a = Math.random() * Math.PI * 2, sp = sr * (2 + Math.random() * 5); this.drops.push({ x: c.x, y: c.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - sr * 3, r: 2 + Math.random() * sr * 0.08, col: it.danger ? '#ffb000' : col, life: 1 }) }
   }
 
+  // Both 2D canvases are only cleared when something was drawn on them last
+  // frame: full-screen clears at high DPR are not free on mobile.
   private drawFx(dt: number, raw: number) {
-    const s = this.sctx; s.clearRect(0, 0, this.W, this.H)
+    const s = this.sctx
+    if (this.sDirty) { s.clearRect(0, 0, this.W, this.H); this.sDirty = false }
+    if (this.stains.length) this.sDirty = true
     for (const st of this.stains) { st.life -= raw / 3.5; if (st.life > 0) { s.globalAlpha = Math.min(1, st.life * 1.6); s.drawImage(st.c, st.x, st.y) } }
     s.globalAlpha = 1; this.stains = this.stains.filter(st => st.life > 0)
-    const t = this.tctx, gy = this.H * 1.8
+    const t = this.tctx, gy = this.H * 1.8, glow = this.quality.s.glow
+    if (this.drops.length || this.misses.length || this.waves.length || this.confetti.length) this.tDirty = true
     t.shadowBlur = 0
     for (const d of this.drops) { d.vy += gy * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.life -= dt * 1.1; if (d.life > 0) { t.globalAlpha = d.life; t.fillStyle = d.col; t.beginPath(); t.arc(d.x, d.y, d.r * (0.5 + d.life * 0.5), 0, Math.PI * 2); t.fill() } }
     this.drops = this.drops.filter(d => d.life > 0 && d.y < this.H + 20)
@@ -530,8 +609,10 @@ export class Engine {
     for (const w of this.waves) for (const k of [0, 1]) {
       const e = (now - w.t) / 1000 - k * 0.09; if (e < 0 || e > 0.75) continue
       const q = e / 0.75, R = 30 + (1 - Math.pow(1 - q, 3)) * Math.max(this.W, this.H) * (k ? 0.45 : 0.75)
-      t.globalAlpha = (1 - q) * (k ? 0.6 : 1); t.lineWidth = (k ? 3 : 9) * (1 - q) + 1; t.strokeStyle = '#fff4e6'; t.shadowColor = w.col; t.shadowBlur = 26
-      t.beginPath(); t.arc(w.x, w.y, R, 0, Math.PI * 2); t.stroke()
+      const A = (1 - q) * (k ? 0.6 : 1), lw = (k ? 3 : 9) * (1 - q) + 1
+      t.beginPath(); t.arc(w.x, w.y, R, 0, Math.PI * 2)
+      if (glow) { t.shadowColor = w.col; t.shadowBlur = 26 } else { t.globalAlpha = A * 0.35; t.lineWidth = lw + 22; t.strokeStyle = w.col; t.stroke() }
+      t.globalAlpha = A; t.lineWidth = lw; t.strokeStyle = '#fff4e6'; t.stroke()
     }
     t.shadowBlur = 0; this.waves = this.waves.filter(w => now - w.t < 1000)
     t.globalAlpha = 1
@@ -545,18 +626,26 @@ export class Engine {
 
   private drawTrail() {
     const ctx = this.tctx, now = performance.now(), life = 200
-    ctx.clearRect(0, 0, this.W, this.H)
-    this.trail = this.trail.filter(p => now - p.t < life)
+    if (this.tDirty) { ctx.clearRect(0, 0, this.W, this.H); this.tDirty = false }
+    if (this.trail.length && now - this.trail[0].t >= life) this.trail = this.trail.filter(p => now - p.t < life)
     const pts = this.trail; if (pts.length < 2) return
-    const WM = [1, 1.8, 2.7], GC = ['rgba(255,106,0,.95)', 'rgba(255,154,0,1)', 'rgba(255,60,0,1)'], GB = [18, 30, 46], OC = ['', '255,154,0', '255,72,0']
+    this.tDirty = true
+    const WM = [1, 1.8, 2.7], GC = ['rgba(255,106,0,.95)', 'rgba(255,154,0,1)', 'rgba(255,60,0,1)'], GB = [18, 30, 46], OC = ['255,106,0', '255,154,0', '255,72,0']
+    const glow = this.quality.s.glow
     ctx.lineCap = 'round'
     for (let i = 1; i < pts.length; i++) {
       if (pts[i].t - pts[i - 1].t > 120) continue
-      const a = 1 - (now - pts[i].t) / life, lv = pts[i].lv || 0, A = a.toFixed(3)
-      ctx.shadowColor = GC[lv]; ctx.shadowBlur = GB[lv]
-      if (lv) { ctx.strokeStyle = `rgba(${OC[lv]},${A})`; ctx.lineWidth = (1.5 + a * 9) * WM[lv]; ctx.beginPath(); ctx.moveTo(pts[i - 1].x, pts[i - 1].y); ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke(); ctx.shadowBlur = 0 }
-      ctx.strokeStyle = `rgba(255,244,230,${A})`; ctx.lineWidth = 1.5 + a * (lv ? 7 : 9)
-      ctx.beginPath(); ctx.moveTo(pts[i - 1].x, pts[i - 1].y); ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke()
+      const p0 = pts[i - 1], p1 = pts[i], a = 1 - (now - p1.t) / life, lv = p1.lv || 0, A = a.toFixed(3)
+      const line = (style: string, width: number) => { ctx.strokeStyle = style; ctx.lineWidth = width; ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke() }
+      const core = 1.5 + a * (lv ? 7 : 9), outer = (1.5 + a * 9) * WM[lv]
+      if (glow) { ctx.shadowColor = GC[lv]; ctx.shadowBlur = GB[lv] } else {
+        // shadowBlur is the single most expensive thing on this canvas: fake the halo with two soft strokes
+        const w = lv ? outer : core
+        line(`rgba(${OC[lv]},${(a * 0.05).toFixed(3)})`, w + GB[lv] * 1.1)
+        line(`rgba(${OC[lv]},${(a * 0.12).toFixed(3)})`, w + GB[lv] * 0.45)
+      }
+      if (lv) { line(`rgba(${OC[lv]},${A})`, outer); ctx.shadowBlur = 0 }
+      line(`rgba(255,244,230,${A})`, core)
     }
     ctx.shadowBlur = 0
   }
@@ -581,7 +670,7 @@ export class Engine {
     it.float = true; it.r = this.r * 1.15; it.g.scale.setScalar(it.r); it.baseY = -this.viewH * 0.1
     it.pos.set(0, it.baseY, 0); it.g.position.copy(it.pos)
     const ring = new THREE.Group()
-    for (let k = 0; k < 4; k++) { const m = new THREE.Mesh(this.arcGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(k % 2 ? '#ff9a00' : '#ff6a00'), transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending })); m.rotation.z = k * Math.PI / 2; m.renderOrder = 4; ring.add(m) }
+    for (let k = 0; k < 4; k++) { const col = k % 2 ? '#ff9a00' : '#ff6a00', m = new THREE.Mesh(this.arcGeo, this.basic('arc|' + col, { color: new THREE.Color(col), transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending })); m.rotation.z = k * Math.PI / 2; m.renderOrder = 4; ring.add(m) }
     it.g.add(ring); it.ring = ring
     it.g.scale.setScalar(0.001)
     this.tween(null, 1.0, ease.outCubic, p => it.g.scale.setScalar(Math.max(0.001, it.r * p)))
@@ -713,7 +802,8 @@ export class Engine {
   private onUp = (e: PointerEvent) => this.pUp(e)
 
   private isUI(e: PointerEvent) { return !!(e.target as Element | null)?.closest?.('[data-ui]') }
-  private localPt(e: PointerEvent): Pt { const r = this.root.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now() } }
+  // root offset is cached in resize(): reading the rect here would force a layout on every pointer event
+  private localPt(e: PointerEvent): Pt { return { x: e.clientX - this.rootX, y: e.clientY - this.rootY, t: performance.now() } }
 
   private pDown(e: PointerEvent) {
     if (this.isUI(e)) return
@@ -746,7 +836,7 @@ export class Engine {
     this.trySlice(a, p)
   }
 
-  private toScreen(v: THREE.Vector3) { const p = v.clone().project(this.camera); return { x: (p.x + 1) / 2 * this.W, y: (1 - p.y) / 2 * this.H } }
+  private toScreen(v: THREE.Vector3) { const p = this.v.copy(v).project(this.camera); return { x: (p.x + 1) / 2 * this.W, y: (1 - p.y) / 2 * this.H } }
 
   private trySlice(a: Pt, b: Pt) {
     const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy
@@ -799,7 +889,8 @@ export class Engine {
 
   // ---------- loop ----------
   private frame(t: number) {
-    const raw = Math.min((t - this.last) / 1000, 0.05); this.last = t
+    const ms = t - this.last, raw = Math.min(ms / 1000, 0.05); this.last = t
+    if ((this.mode === 'play' || this.mode === 'intro') && this.quality.sample(ms)) this.applyQuality()
     this.updateTweens(raw)
     const dt = raw * this.timeScale
     this.uTime.value += dt
@@ -848,7 +939,10 @@ export class Engine {
     if (Math.abs(this.camera.fov - fx.fov) > 1e-3) { this.camera.fov = fx.fov; this.camera.updateProjectionMatrix() }
     if (fx.blur !== this.blurNow) { this.blurNow = fx.blur; this.renderer!.domElement.style.filter = fx.blur > 0.05 ? `blur(${fx.blur.toFixed(2)}px)` : 'none' }
     this.caPulse *= Math.exp(-raw * 4); this.bloomPulse *= Math.exp(-raw * 3)
-    if (this.post) this.renderPost(); else this.renderer!.render(this.scene, this.camera)
+    // Behind a still popup/settings panel/game over screen the scene barely moves, but every
+    // WebGL frame forces the overlay's backdrop blur to be recomputed: draw at half rate there.
+    const u = ui(), calm = (u.popupShown || u.settingsOpen || u.phase === 'over') && !this.tw.has('cam') && !this.tw.has('fx')
+    if (!calm || ++this.frameNo % 2 === 0) { if (this.post) this.renderPost(); else this.renderer!.render(this.scene, this.camera) }
     this.drawTrail()
     this.drawFx(dt, raw)
   }

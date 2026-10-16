@@ -17,9 +17,24 @@ export class Sfx {
     this.sliceKind = sliceKind
   }
 
-  /** Lazily creates (and resumes) the context; call from a user gesture. */
+  /**
+   * Creates the (suspended) context ahead of time. The constructor alone can
+   * block for 100ms+ while the audio device opens, so it must not happen on
+   * the first slice. Browsers only let it start after a gesture: see `ctx()`.
+   */
+  prepare() {
+    this.create()
+  }
+
+  /** The context, resumed if needed; call from a user gesture. Null while muted. */
   ctx() {
     if (!this.enabled()) return null
+    const ac = this.create()
+    if (ac?.state === 'suspended') ac.resume().catch(() => { /* not allowed until a gesture */ })
+    return ac
+  }
+
+  private create() {
     try {
       if (!this.ac) {
         const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
@@ -30,7 +45,6 @@ export class Sfx {
         const b = this.noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate), d = b.getChannelData(0)
         for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
       }
-      if (this.ac.state === 'suspended') this.ac.resume()
       return this.ac
     } catch {
       return null
