@@ -1,0 +1,39 @@
+const line = { fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' } as const
+
+export const GearIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" {...line}>
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+)
+
+export const SoundOnIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" {...line}>
+    <path d="M11 5 6 9H2v6h4l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M19 5a10 10 0 0 1 0 14" />
+  </svg>
+)
+
+export const SoundOffIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" {...line}>
+    <path d="M11 5 6 9H2v6h4l5 4V5z" /><path d="m22 9-6 6" /><path d="m16 9 6 6" />
+  </svg>
+)
+
+export const CloseIcon = ({ color, width = 2.6 }: { color: string; width?: number }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={width} strokeLinecap="round">
+    <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+  </svg>
+)
+
+export const ArrowIcon = ({ width = 2.4 }: { width?: number }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" {...line} strokeWidth={width}>
+    <path d="M7 7h10v10" /><path d="M7 17 17 7" />
+  </svg>
+)
+
+export const LifeIcon = ({ color }: { color: string }) => (
+  <svg viewBox="0 0 24 24" width="30" height="30" fill="none" strokeLinecap="round">
+    <path d="M5 5 19 19M19 5 5 19" stroke="#1a0d05" strokeWidth="7" />
+    <path d="M5 5 19 19M19 5 5 19" stroke={color} strokeWidth="3.5" />
+  </svg>
+)
