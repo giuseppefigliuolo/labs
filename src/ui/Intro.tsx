@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { useUI } from '../store'
 import { PhoneLandscapeIcon } from './icons'
 import { goLandscape } from './orientation'
@@ -8,7 +9,18 @@ export function Intro() {
   const showRotate = useUI(s => s.touch && s.portrait)
   return (
     <div className="intro">
-      <h1 className="intro__title outlined">Labs</h1>
+      <h1 className="intro__title" aria-label="Labs">
+        <span className="intro__word" aria-hidden="true">
+          {[...'Labs'].map((ch, i) => (
+            <span key={i} className="intro__letter" style={{ '--i': i } as CSSProperties}>
+              <span className="intro__float">
+                <span className="intro__tube">{ch}</span>
+                <span className="intro__core">{ch}</span>
+              </span>
+            </span>
+          ))}
+        </span>
+      </h1>
       <p data-intro-text="1" className="intro__text">I progetti nati in Bitrock, da prendere al volo. Tagliali per scoprirli ed evita i bug.</p>
       <div className="intro__spacer" />
       <div data-intro-hint="1" className="intro__hint">

@@ -5,6 +5,10 @@ a { color: #ff6a00; text-decoration: none }
 @keyframes swipeHint { 0% { transform: translateX(-56px) rotate(-20deg); opacity: 0 } 25% { opacity: 1 } 70% { opacity: 1 } 100% { transform: translateX(56px) rotate(-20deg); opacity: 0 } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(18px) } to { opacity: 1; transform: none } }
 @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes labsIn { 0% { opacity: 0; transform: translateY(-.5em) scale(.6) rotate(-8deg) } 60% { opacity: 1 } 100% { opacity: 1; transform: none } }
+@keyframes labsFloat { 0%, 100% { transform: translateY(0) rotate(-.8deg) } 50% { transform: translateY(-.03em) rotate(.8deg) } }
+@keyframes labsSway { 0%, 100% { transform: rotateX(8deg) rotateY(-5deg) } 50% { transform: rotateX(5deg) rotateY(5deg) } }
+@keyframes labsFlicker { 0%, 91%, 95%, 100% { opacity: 1 } 92% { opacity: .45 } 93% { opacity: .9 } 94% { opacity: .55 } }
 @keyframes rotPhone { 0%, 15% { transform: rotate(0) } 45%, 85% { transform: rotate(-90deg) } 100% { transform: rotate(0) } }
 
 /* Outlined "arcade" heading text. Font comes from --hf (CONFIG.titleFont). */
@@ -63,7 +67,17 @@ a { color: #ff6a00; text-decoration: none }
 
 /* ============ Intro ============ */
 .intro { position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; text-align: center; padding: calc(env(safe-area-inset-top) + 12vh) 24px calc(env(safe-area-inset-bottom) + 8vh); animation: fadeUp .8s cubic-bezier(.16,1,.3,1) both }
-.intro__title { margin: 0; font-size: clamp(60px,min(26vw,24vh),200px); line-height: .95; letter-spacing: -0.03em; color: #ff9a00; -webkit-text-stroke-width: 6px; text-shadow: 0 10px 0 #1a0d05, 0 0 60px rgba(255,106,0,.35) }
+/* Neon "Labs": each letter is a stroked tube with a thin light core. The glow is drop-shadow, not
+   text-shadow, so it follows the stroke instead of filling the transparent glyph. Sizes in em. */
+.intro__title { position: relative; margin: 0; font-family: var(--hf); font-weight: 900; font-size: clamp(60px,min(26vw,24vh),200px); line-height: .95; letter-spacing: -0.03em; perspective: 900px }
+.intro__word { display: flex; transform-style: preserve-3d; animation: labsSway 7s ease-in-out infinite }
+.intro__letter { display: inline-block; animation: labsIn .9s cubic-bezier(.16,1,.3,1) calc(var(--i) * .08s) both }
+.intro__float { position: relative; display: inline-block; padding: 0 .05em; animation: labsFloat 3.2s ease-in-out calc(var(--i) * -.8s) infinite }
+.intro__tube { display: inline-block; color: transparent; -webkit-text-stroke: .04em #ff9a00; filter: drop-shadow(0 0 .03em #ff9a00) drop-shadow(0 0 .12em #ff6a00) drop-shadow(0 0 .3em rgba(255,72,0,.8)); animation: labsFlicker calc(5s + var(--i) * 1.3s) linear calc(var(--i) * .7s) infinite }
+.intro__core { position: absolute; inset: 0 .05em; color: transparent; -webkit-text-stroke: .012em #fff4e0 }
+@media (prefers-reduced-motion: reduce) {
+  .intro__word, .intro__float, .intro__tube { animation: none }
+}
 .intro__text { margin: 18px 0 0; max-width: 330px; font-size: 18px; line-height: 1.5; color: #ffe2c7; text-wrap: pretty }
 .intro__spacer { flex: 1 }
 .intro__hint { display: flex; flex-direction: column; align-items: center; gap: 18px }
