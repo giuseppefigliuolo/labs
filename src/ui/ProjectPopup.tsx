@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { CTA_HREF, PROJECTS, type Project } from '../data/projects'
-import { cfg, useUI, type UIState } from '../store'
+import { CONFIG } from '../config'
+import { useUI, type UIState } from '../store'
 import type { Actions } from './actions'
 import { ArrowIcon, CloseIcon } from './icons'
 
@@ -153,7 +154,7 @@ export function ProjectPopup({ actions }: { actions: Actions }) {
   if (!p) return null
   const v = popVals(s)
   const tint = p.tint || '#ff9a00'
-  const Card = CARDS[cfg('popupStyle', s.settings)]
+  const Card = CARDS[CONFIG.popupStyle]
   const card: ReactNode = <Card p={p} close={actions.closePopup} backLabel={s.backLabel} />
   return (
     <>

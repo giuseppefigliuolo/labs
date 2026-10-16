@@ -259,7 +259,7 @@ export class Engine {
     }
     add('bitrock', await bitrockCanvas(), 1.3, 1.1)
     add('bug', bugCanvas(), 1.0, 1.0)
-    add('start', wordmark('gioca', '#ff9a00'), 1.3)
+    add('start', wordmark('gioca', '#ff9a00'), 1.7)
   }
 
   private buildDust() {
@@ -279,7 +279,10 @@ export class Engine {
     this.camera.aspect = W / H; this.camera.updateProjectionMatrix()
     this.viewH = 2 * this.camZ * Math.tan(this.fov * Math.PI / 360)
     this.viewW = this.viewH * this.camera.aspect
-    this.r = Math.min(this.viewW * 0.16, this.viewH * 0.09)
+    const touch = !!window.matchMedia?.('(pointer: coarse)').matches, portrait = innerHeight > innerWidth
+    // bigger bubbles on a phone held sideways (Fruit Ninja style)
+    this.r = Math.min(this.viewW * 0.16, this.viewH * (touch && !portrait ? 0.11 : 0.09))
+    this.syncDevice(touch, portrait)
     this.g = this.viewH * 1.0
     const rr = this.root.getBoundingClientRect(); this.rootX = rr.left; this.rootY = rr.top
     const dpr = this.quality.s.dpr
@@ -288,6 +291,18 @@ export class Engine {
     this.items.forEach(it => { if (it.float) { this.fitIntro(it); it.g.scale.setScalar(it.r) } })
     this.post?.setSize(W, H, renderer.getPixelRatio())
     this.sDirty = this.tDirty = true
+  }
+
+  /**
+   * Publishes touch/portrait to the UI and closes "Ruota il telefono" once landscape.
+   * The intro's layout depends on both (and on the CSS short-screen query), so the
+   * "gioca" bubble is refitted after React has committed the new layout.
+   */
+  private syncDevice(touch: boolean, portrait: boolean) {
+    const s = ui()
+    if (touch === s.touch && portrait === s.portrait && (portrait || !s.rotateHint)) return
+    set({ touch, portrait, rotateHint: portrait && s.rotateHint })
+    requestAnimationFrame(() => requestAnimationFrame(() => this.items.forEach(it => { if (it.alive && it.float) { this.fitIntro(it); it.g.scale.setScalar(it.r) } })))
   }
 
   /** Applies a quality step chosen by `Quality.sample`. */
@@ -660,7 +675,7 @@ export class Engine {
     const p = this.root.querySelector<HTMLElement>('[data-intro-text]'), h = this.root.querySelector<HTMLElement>('[data-intro-hint]'); if (!p || !h) return
     const top = p.offsetTop + p.offsetHeight + 16, bot = h.offsetTop - 12; if (bot <= top) return
     const k = this.viewH / this.H, half = (bot - top) / 2 * k
-    it.r = Math.max(this.r * 0.5, Math.min(it.r, (half - 0.16) / 1.56))
+    it.r = Math.max(this.r * 0.7, Math.min(it.r, (half - 0.16) / 1.56))
     it.baseY = this.viewH / 2 - (top + bot) / 2 * k
   }
 

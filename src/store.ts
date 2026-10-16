@@ -20,6 +20,10 @@ export type UIState = {
   complete: boolean
   settings: Partial<Settings>
   settingsOpen: boolean
+  // device: coarse pointer, portrait viewport, "Ruota il telefono" overlay
+  touch: boolean
+  portrait: boolean
+  rotateHint: boolean
   // project popup
   popup: Project | null
   popupShown: boolean
@@ -52,8 +56,13 @@ export const write = (k: string, v: string) => {
   try { localStorage.setItem(k, v) } catch { /* storage unavailable */ }
 }
 
+// Only player-facing settings are kept: older saves may still carry `sfondo` or
+// `popupStyle`, which are now project config and must be ignored.
 const initialSettings = (): Partial<Settings> => {
-  try { return JSON.parse(read(KEY_SETTINGS) || '{}') || {} } catch { return {} }
+  try {
+    const { difficulty, bugRule } = JSON.parse(read(KEY_SETTINGS) || '{}') || {}
+    return { ...(difficulty && { difficulty }), ...(bugRule && { bugRule }) }
+  } catch { return {} }
 }
 
 export const useUI = create<UIState>(() => ({
@@ -67,6 +76,9 @@ export const useUI = create<UIState>(() => ({
   complete: false,
   settings: initialSettings(),
   settingsOpen: false,
+  touch: false,
+  portrait: false,
+  rotateHint: false,
   popup: null,
   popupShown: false,
   origin: '50% 50%',

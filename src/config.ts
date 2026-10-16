@@ -1,6 +1,7 @@
 // Design knobs. In the Claude Design prototype these were editor props;
 // here they are build-time constants. Values marked "(settings)" are only the
-// default: the player can override them from the Impostazioni panel.
+// default: the player can override them from the Impostazioni panel. The rest
+// (popup style and background included) are project config only.
 
 export type TitleFont = 'lilita one' | 'luckiest guy' | 'titan one' | 'bungee' | 'bowlby one' | 'nunito'
 export type PopupStyle = 'attuale' | 'arcade' | 'vetro' | 'carta'
@@ -15,7 +16,7 @@ export type Sfondo = 'legno' | 'griglia' | 'punti' | 'orizzonte' | 'carbonio' | 
 export const CONFIG = {
   // Popup
   titleFont: 'bungee' as TitleFont,
-  popupStyle: 'carta' as PopupStyle, // (settings)
+  popupStyle: 'carta' as PopupStyle,
   // Transizione
   zoomStyle: 'attuale' as ZoomStyle,
   // Gioco
@@ -32,12 +33,10 @@ export const CONFIG = {
   // Audio
   sound: true,
   // Sfondo
-  sfondo: 'legno' as Sfondo // (settings)
+  sfondo: 'legno' as Sfondo
 }
 
 export type Settings = {
-  popupStyle: PopupStyle
-  sfondo: Sfondo
   difficulty: Difficulty
   bugRule: BugRule
 }

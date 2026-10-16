@@ -79,9 +79,9 @@ const fnv = (s: string) => {
   return h >>> 0
 }
 
-/** Fruit variant a tint/key pair maps to (stable per project). */
+/** Fruit variant (0..6) a tint/key pair maps to, stable per project; -1 is the bug interior. */
 export const fleshVariant = (tint: string, key?: string) =>
-  tint === 'dark' ? -1 : [0, 2, 3, 4, 5, 6][fnv(String(key ?? tint)) % 6]
+  tint === 'dark' ? -1 : fnv(String(key ?? tint)) % 7
 
 /**
  * "Fruit flesh" texture for the cut face of a sliced bubble.
@@ -103,6 +103,17 @@ export function fleshCanvas(tint: string, key?: string) {
   } else if (variant === 0) { // classic seed ring
     g.addColorStop(0, 'rgba(255,250,240,1)'); g.addColorStop(0.28, tint); g.addColorStop(0.84, tint); g.addColorStop(0.9, 'rgba(255,245,230,1)'); g.addColorStop(1, 'rgba(255,245,230,.75)'); disc(128, g)
     for (let i = 0; i < 9; i++) { const a = i / 9 * TAU, r = 60; seed(C + Math.cos(a) * r, C + Math.sin(a) * r, 4, 9, a, 'rgba(26,13,5,.6)') }
+  } else if (variant === 1) { // citrus segments
+    disc(128, 'rgba(255,245,230,.85)'); disc(116, '#fffaf0')
+    const n = 9 + Math.floor(rnd() * 4)
+    for (let i = 0; i < n; i++) {
+      const a0 = i / n * TAU + 0.05, a1 = (i + 1) / n * TAU - 0.05
+      const sg = x.createRadialGradient(C, C, 10, C, C, 110); sg.addColorStop(0, 'rgba(255,255,255,.9)'); sg.addColorStop(0.35, tint); sg.addColorStop(1, tint)
+      x.fillStyle = sg; x.beginPath(); x.moveTo(C + Math.cos((a0 + a1) / 2) * 12, C + Math.sin((a0 + a1) / 2) * 12); x.arc(C, C, 106, a0, a1); x.closePath(); x.fill()
+      x.strokeStyle = 'rgba(255,255,255,.35)'; x.lineWidth = 1.5
+      for (let k = 0; k < 4; k++) { const a = a0 + (a1 - a0) * (0.2 + rnd() * 0.6), r0 = 30 + rnd() * 30; x.beginPath(); x.moveTo(C + Math.cos(a) * r0, C + Math.sin(a) * r0); x.lineTo(C + Math.cos(a) * (r0 + 18 + rnd() * 20), C + Math.sin(a) * (r0 + 18 + rnd() * 20)); x.stroke() }
+    }
+    disc(9, '#fffaf0')
   } else if (variant === 2) { // kiwi: pale core, dense seed halo
     g.addColorStop(0, 'rgba(255,252,235,1)'); g.addColorStop(0.22, 'rgba(255,252,235,1)'); g.addColorStop(0.36, tint); g.addColorStop(0.92, tint); g.addColorStop(1, 'rgba(60,40,20,.8)'); disc(128, g)
     for (let i = 0; i < 70; i++) { const a = rnd() * TAU, r = 38 + rnd() * 22; seed(C + Math.cos(a) * r, C + Math.sin(a) * r, 1.8, 4.5, a, 'rgba(20,10,4,.85)') }
@@ -118,11 +129,22 @@ export function fleshCanvas(tint: string, key?: string) {
     const fg = x.createRadialGradient(ox, oy, 30, ox, oy, 70); fg.addColorStop(0, 'rgba(255,255,255,.35)'); fg.addColorStop(1, 'rgba(255,255,255,0)'); disc(128, fg)
     const pg = x.createRadialGradient(ox - 10, oy - 10, 4, ox, oy, 42); pg.addColorStop(0, '#a8703c'); pg.addColorStop(1, '#4a2a12')
     x.fillStyle = pg; x.beginPath(); x.ellipse(ox, oy, 34, 40, rnd() * TAU, 0, TAU); x.fill()
-  } else if (variant === 5) { // pomegranate: packed juicy arils
-    disc(128, 'rgba(255,240,220,.9)'); disc(118, 'rgba(255,248,235,1)')
+  } else if (variant === 5) { // pomegranate: warm red rind, cream pith tinted by the project, glossy arils
+    disc(128, '#b8402a'); disc(120, '#f6dcb4')
+    x.globalAlpha = 0.45; disc(120, tint); x.globalAlpha = 1
+    const glow = x.createRadialGradient(C, C, 0, C, C, 120); glow.addColorStop(0, 'rgba(255,245,225,.55)'); glow.addColorStop(0.5, 'rgba(255,245,225,.15)'); glow.addColorStop(1, 'rgba(255,245,225,0)'); disc(120, glow)
+    x.strokeStyle = 'rgba(255,240,210,.85)'; x.lineWidth = 3; x.lineCap = 'round'
+    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + rnd() * 0.3; x.beginPath(); x.moveTo(C, C); x.quadraticCurveTo(C + Math.cos(a + 0.3) * 60, C + Math.sin(a + 0.3) * 60, C + Math.cos(a) * 118, C + Math.sin(a) * 118); x.stroke() }
     const pts: [number, number][] = []
     for (let k = 0; k < 600 && pts.length < 75; k++) { const a = rnd() * TAU, r = Math.sqrt(rnd()) * 104, px = C + Math.cos(a) * r, py = C + Math.sin(a) * r; if (pts.every(p => (p[0] - px) ** 2 + (p[1] - py) ** 2 > 196)) pts.push([px, py]) }
-    for (const [px, py] of pts) { const r = 7 + rnd() * 2; x.fillStyle = tint; x.beginPath(); x.arc(px, py, r, 0, TAU); x.fill(); x.fillStyle = 'rgba(255,255,255,.55)'; x.beginPath(); x.arc(px - r * 0.35, py - r * 0.35, r * 0.3, 0, TAU); x.fill() }
+    for (const [px, py] of pts) {
+      const r = 7 + rnd() * 2
+      x.fillStyle = 'rgba(150,24,12,.3)'; x.beginPath(); x.arc(px + 1, py + 1.5, r + 1, 0, TAU); x.fill()
+      const ag = x.createRadialGradient(px - r * 0.35, py - r * 0.35, 0, px, py, r); ag.addColorStop(0, '#ffd9d4'); ag.addColorStop(0.55, tint); ag.addColorStop(1, tint)
+      x.fillStyle = ag; x.beginPath(); x.arc(px, py, r, 0, TAU); x.fill()
+      x.fillStyle = 'rgba(255,255,255,.8)'; x.beginPath(); x.ellipse(px - r * 0.32, py - r * 0.38, r * 0.34, r * 0.2, -0.6, 0, TAU); x.fill()
+      x.fillStyle = 'rgba(255,255,255,.55)'; x.beginPath(); x.arc(px + r * 0.38, py + r * 0.3, r * 0.12, 0, TAU); x.fill()
+    }
   } else { // dragon fruit: pale flesh, speckles, coloured skin
     disc(128, tint); disc(116, 'rgba(255,252,248,1)')
     const dg = x.createRadialGradient(C, C, 0, C, C, 116); dg.addColorStop(0, 'rgba(255,255,255,0)'); dg.addColorStop(1, tint); x.globalAlpha = 0.25; disc(116, dg); x.globalAlpha = 1

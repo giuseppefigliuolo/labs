@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, type CSSProperties } from 'react'
 import { CONFIG, TITLE_FONTS } from './config'
 import { Engine } from './game/Engine'
-import { cfg, useUI } from './store'
+import { useUI } from './store'
 import type { Actions } from './ui/actions'
 import { Background } from './ui/Background'
 import { Complete, GameOver } from './ui/EndScreens'
 import { Intro } from './ui/Intro'
+import { RotateHint } from './ui/RotateHint'
 import { ProjectPopup } from './ui/ProjectPopup'
 import { Settings } from './ui/Settings'
 import { Toasts } from './ui/Toasts'
@@ -37,14 +38,14 @@ export default function App() {
   const complete = useUI(s => s.complete)
   const settingsOpen = useUI(s => s.settingsOpen)
   const popup = useUI(s => s.popup)
+  const rotateHint = useUI(s => s.rotateHint)
   const flash = useUI(s => s.flash)
   const flashColor = useUI(s => s.flashColor)
   const flashT = useUI(s => s.flashT)
-  const sfondo = useUI(s => cfg('sfondo', s.settings))
 
   return (
     <div ref={rootRef} className="labs" data-screen-label="Labs" style={{ '--hf': TITLE_FONTS[CONFIG.titleFont].family } as CSSProperties}>
-      <Background kind={sfondo} />
+      <Background kind={CONFIG.sfondo} />
       <div ref={mountRef} className="fill" />
       <div className="flash" style={{ background: flashColor, opacity: flash, transition: flashT }} />
 
@@ -53,11 +54,12 @@ export default function App() {
 
       {phase === 'loading' && <div className="loading">Caricamento</div>}
       {phase === 'intro' && <Intro />}
-      {phase === 'play' && <Tray actions={actions} />}
+      {phase === 'play' && !complete && <Tray actions={actions} />}
       {phase === 'over' && <GameOver actions={actions} />}
       {complete && <Complete actions={actions} />}
       {settingsOpen && <Settings actions={actions} />}
       {popup && <ProjectPopup actions={actions} />}
+      {rotateHint && <RotateHint />}
     </div>
   )
 }

@@ -5,11 +5,15 @@ a { color: #ff6a00; text-decoration: none }
 @keyframes swipeHint { 0% { transform: translateX(-56px) rotate(-20deg); opacity: 0 } 25% { opacity: 1 } 70% { opacity: 1 } 100% { transform: translateX(56px) rotate(-20deg); opacity: 0 } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(18px) } to { opacity: 1; transform: none } }
 @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes rotPhone { 0%, 15% { transform: rotate(0) } 45%, 85% { transform: rotate(-90deg) } 100% { transform: rotate(0) } }
 
 /* Outlined "arcade" heading text. Font comes from --hf (CONFIG.titleFont). */
 .outlined { font-family: var(--hf); font-weight: 900; -webkit-text-stroke: 3px #1a0d05; paint-order: stroke fill }
 
 .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase }
+/* Small sentence-case label (Bungee stays for headings only). */
+.label { font-size: 14px; font-weight: 700 }
+.label--lg { font-size: 15px }
 
 /* ============ Root + backgrounds ============ */
 .labs {
@@ -43,7 +47,7 @@ a { color: #ff6a00; text-decoration: none }
 .score__value { font-size: 56px; line-height: 1; letter-spacing: -0.02em; color: #ff9a00; text-shadow: 0 5px 0 #1a0d05 }
 .score__best { font-size: 13px; color: rgba(255,255,255,.75); font-weight: 700 }
 .icon-row { display: flex; gap: 8px }
-.icon-btn { pointer-events: auto; width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.06); color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: background .25s cubic-bezier(.4,0,.2,1) }
+.icon-btn { pointer-events: auto; width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.06); color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: background .25s cubic-bezier(.4,0,.2,1) }
 .icon-btn:hover { background: rgba(255,255,255,.14) }
 .lives { display: flex; gap: 8px; animation: fadeIn .5s ease both }
 .life { width: 30px; height: 30px; transition: transform .4s cubic-bezier(.16,1,.3,1) }
@@ -58,43 +62,53 @@ a { color: #ff6a00; text-decoration: none }
 .loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; color: rgba(255,255,255,.6); letter-spacing: .08em; text-transform: uppercase; pointer-events: none }
 
 /* ============ Intro ============ */
-.intro { position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; text-align: center; padding: calc(env(safe-area-inset-top) + 15vh) 24px calc(env(safe-area-inset-bottom) + 8vh); animation: fadeUp .8s cubic-bezier(.16,1,.3,1) both }
-.intro__title { margin: 0; font-size: clamp(88px,26vw,200px); line-height: .95; letter-spacing: -0.03em; color: #ff9a00; -webkit-text-stroke-width: 6px; text-shadow: 0 10px 0 #1a0d05, 0 0 60px rgba(255,106,0,.35) }
+.intro { position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; text-align: center; padding: calc(env(safe-area-inset-top) + 12vh) 24px calc(env(safe-area-inset-bottom) + 8vh); animation: fadeUp .8s cubic-bezier(.16,1,.3,1) both }
+.intro__title { margin: 0; font-size: clamp(60px,min(26vw,24vh),200px); line-height: .95; letter-spacing: -0.03em; color: #ff9a00; -webkit-text-stroke-width: 6px; text-shadow: 0 10px 0 #1a0d05, 0 0 60px rgba(255,106,0,.35) }
 .intro__text { margin: 18px 0 0; max-width: 330px; font-size: 18px; line-height: 1.5; color: #ffe2c7; text-wrap: pretty }
 .intro__spacer { flex: 1 }
 .intro__hint { display: flex; flex-direction: column; align-items: center; gap: 18px }
 .intro__swipe { width: 96px; height: 3px; border-radius: 3px; background: linear-gradient(90deg, rgba(255,255,255,0), #ffffff); box-shadow: 0 0 14px rgba(255,106,0,.95); animation: swipeHint 1.8s cubic-bezier(.4,0,.2,1) infinite }
-.intro__cta { font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #ffffff }
+.intro__cta { font-size: 16px; font-weight: 700; color: #ffffff }
+.intro__rotate { pointer-events: auto; height: 44px; padding: 0 18px; border-radius: 100px; border: 1.5px solid rgba(255,255,255,.35); background: rgba(255,255,255,.06); color: #ffffff; display: flex; align-items: center; gap: 8px; font-family: 'Nunito Sans', sans-serif; font-weight: 700; font-size: 15px; cursor: pointer; transition: border-color .25s cubic-bezier(.4,0,.2,1) }
+.intro__rotate:hover { border-color: #ffffff }
+/* Short viewports (phone in landscape): compact intro, copy on one line. The engine refits the bubble on resize. */
+@media (max-height: 519.98px) {
+  .intro { padding: calc(env(safe-area-inset-top) + 4vh) 24px calc(env(safe-area-inset-bottom) + 5vh) }
+  .intro__title { font-size: clamp(44px,16vh,96px) }
+  .intro__text { margin-top: 8px; max-width: 600px; font-size: 16px }
+}
 
 /* ============ Tray ============ */
 .tray { position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 16px calc(env(safe-area-inset-bottom) + 18px); pointer-events: none; animation: fadeIn .6s ease both }
 
 .tray__row { display: flex; gap: 8px; pointer-events: auto }
-.tray__item { width: 44px; height: 44px; border-radius: 50%; border: 1.5px dashed rgba(255,255,255,0.4); background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.7); font-family: Nunito, sans-serif; font-weight: 800; font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: default; padding: 0; transform: scale(.86); transition: all .5s cubic-bezier(.16,1,.3,1) }
-.tray__item.is-found { border: 1.5px solid var(--tint); background: var(--tint); color: #1a0d05; cursor: pointer; transform: scale(1) }
+.tray__row .dot { transform: scale(.86); transition: all .5s cubic-bezier(.16,1,.3,1) }
+.tray__row .dot.is-found { transform: scale(1) }
+
+/* Project circle, shared by the tray and the end screens */
+.dot { width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; border: 1.5px dashed rgba(255,255,255,0.4); background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.7); font-family: Nunito, sans-serif; font-weight: 800; font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: default; padding: 0 }
+.dot.is-found { border: 1.5px solid #ff9a00; background: #ff9a00; color: #1a0d05; cursor: pointer }
+.dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px }
 
 /* ============ End screens ============ */
-.screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; animation: fadeIn .6s ease both }
+/* Full-screen and scrollable: the body is centred with margin:auto so short viewports scroll instead of clipping. */
+.screen { position: absolute; inset: 0; display: flex; overflow: auto; touch-action: pan-y; padding: calc(env(safe-area-inset-top) + 24px) 24px calc(env(safe-area-inset-bottom) + 24px); animation: fadeIn .6s ease both }
 .screen--over { background: rgba(20,12,7,.65); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px) }
 .screen--complete { background: radial-gradient(70% 55% at 50% 50%, rgba(20,12,7,.85), rgba(20,12,7,.45)) }
-.screen__body { width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 24px; animation: fadeUp .8s cubic-bezier(.16,1,.3,1) both }
+.screen__body { margin: auto; width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: clamp(14px,3vh,24px); animation: fadeUp .8s cubic-bezier(.16,1,.3,1) both }
 .screen--complete .screen__body { max-width: 420px }
 .stack { display: flex; flex-direction: column; align-items: center }
-.over__title { font-size: clamp(52px,14vw,84px); line-height: 1; color: #ff9a00; -webkit-text-stroke-width: 5px; text-shadow: 0 7px 0 #1a0d05 }
-.over__score { font-size: 96px; line-height: 1.1; color: #ffffff; -webkit-text-stroke-width: 4px; text-shadow: 0 6px 0 #1a0d05 }
+.over__title { font-size: clamp(40px,min(14vw,11vh),84px); line-height: 1; color: #ff9a00; -webkit-text-stroke-width: 5px; text-shadow: 0 7px 0 #1a0d05 }
+.over__score { font-size: clamp(56px,15vh,96px); line-height: 1.1; color: #ffffff; -webkit-text-stroke-width: 4px; text-shadow: 0 6px 0 #1a0d05 }
 .over__record { font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.75) }
 .over__record.is-new { color: #ff9a00 }
-.chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px }
-.over-chip { height: 36px; padding: 0 14px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: transparent; color: rgba(255,255,255,0.6); font-family: 'Nunito Sans', sans-serif; font-weight: 700; font-size: 14px; cursor: default }
-.over-chip.is-found { border-color: #ffffff; background: #ffffff; color: #a33200; cursor: pointer }
 .btn-primary { height: 52px; padding: 0 36px; border-radius: 100px; border: none; background: #ff6a00; color: #ffffff; display: flex; align-items: center; font-family: Nunito, sans-serif; font-weight: 800; font-size: 17px; cursor: pointer; text-decoration: none; transition: background .25s cubic-bezier(.4,0,.2,1) }
 .btn-primary:hover { background: #ff4800; color: #ffffff }
 .btn-ghost { height: 52px; padding: 0 24px; border-radius: 100px; border: 1.5px solid rgba(255,255,255,.4); background: transparent; color: #ffffff; font-family: Nunito, sans-serif; font-weight: 700; font-size: 16px; cursor: pointer; transition: border-color .25s cubic-bezier(.4,0,.2,1) }
 .btn-ghost:hover { border-color: #ffffff }
 .complete__label { color: #ffe2c7 }
-.complete__title { font-size: clamp(46px,12vw,72px); line-height: 1; color: #ff9a00; -webkit-text-stroke-width: 5px; text-shadow: 0 7px 0 #1a0d05; text-wrap: balance }
+.complete__title { font-size: clamp(34px,min(12vw,9vh),72px); line-height: 1; color: #ff9a00; -webkit-text-stroke-width: 5px; text-shadow: 0 7px 0 #1a0d05; text-wrap: balance }
 .complete__bonus { font-size: 24px; color: #ffffff }
-.complete-chip { height: 32px; padding: 0 12px; border-radius: 6px; background: var(--tint); color: #1a0d05; font-family: 'Nunito Sans', sans-serif; font-weight: 800; font-size: 14px; display: flex; align-items: center }
 .complete__text { margin: 0; max-width: 340px; font-size: 17px; line-height: 1.5; color: #ffe2c7; text-wrap: pretty }
 .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px }
 .actions .btn-primary { padding: 0 32px }
@@ -109,17 +123,15 @@ a { color: #ff6a00; text-decoration: none }
 .settings { pointer-events: auto; width: 100%; max-width: 460px; max-height: calc(100dvh - 40px); overflow: auto; touch-action: pan-y; display: flex; flex-direction: column; background: linear-gradient(180deg, rgba(50,29,16,.88) 0%, rgba(20,12,7,.95) 100%); border: 1px solid rgba(255,170,90,.3); border-radius: 26px; box-shadow: inset 0 1px 0 rgba(255,220,180,.18), 0 30px 100px rgba(0,0,0,.6), 0 0 90px rgba(255,106,0,.25); backdrop-filter: blur(20px) saturate(1.3); -webkit-backdrop-filter: blur(20px) saturate(1.3); animation: fadeUp .5s cubic-bezier(.16,1,.3,1) both }
 .settings__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 24px 24px 0 26px }
 .settings__title { margin: 0; font-family: var(--hf); font-size: 30px; font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; color: #ffffff }
-.settings__close { width: 40px; height: 40px; border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.06) }
+.settings__close { width: 44px; height: 44px; border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.06) }
 .settings__body { display: flex; flex-direction: column; gap: 28px; padding: 28px 26px 22px }
 .settings__group { display: flex; flex-direction: column; gap: 10px }
-.settings__label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #ff9a00; font-weight: 800 }
+.settings__label { font-size: 15px; color: #ff9a00; font-weight: 800 }
 .settings__text { font-size: 14px; line-height: 1.5; color: #ecd3bd; text-wrap: pretty }
-.settings__pills { display: flex; flex-wrap: wrap; gap: 8px }
 .settings__grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px }
 .settings__rules { display: flex; flex-direction: column; gap: 8px }
 .opt { border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.04); color: #ffffff; box-shadow: none; font-family: 'Nunito Sans', sans-serif; font-weight: 800; cursor: pointer; transition: all .25s cubic-bezier(.4,0,.2,1) }
 .opt.is-on { border-color: rgba(255,154,0,.75); background: rgba(255,154,0,.16); color: #ffc48a; box-shadow: 0 0 18px rgba(255,106,0,.25) }
-.opt--pill { height: 40px; padding: 0 16px; border-radius: 100px; font-size: 14px }
 .opt--seg { height: 44px; padding: 0 8px; border-radius: 12px; font-size: 15px }
 .opt--rule { display: flex; align-items: flex-start; gap: 12px; text-align: left; padding: 14px 16px; border-radius: 12px }
 .opt__radio { margin-top: 2px; width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-sizing: content-box }
@@ -152,7 +164,7 @@ a { color: #ff6a00; text-decoration: none }
 
 /* --- Essenziale ("attuale") --- */
 .pop-essenziale { background: #ffffff; color: #303030; border-radius: 24px; box-shadow: 0 16px 48px rgba(26,13,5,.25), 0 40px 120px rgba(0,0,0,.45) }
-.pop-essenziale .pop-close { position: absolute; top: 22px; right: 22px; width: 40px; height: 40px; border: none; background: #ffffff; box-shadow: 0 2px 12px rgba(0,0,0,.08); z-index: 2 }
+.pop-essenziale .pop-close { position: absolute; top: 22px; right: 22px; width: 44px; height: 44px; border: none; background: #ffffff; box-shadow: 0 2px 12px rgba(0,0,0,.08); z-index: 2 }
 .pop-essenziale .pop-hero { margin: 12px; height: 172px; border-radius: 16px; background: #fff1e3; display: flex; align-items: center; justify-content: center }
 .pop-essenziale .pop-logo { width: 72%; height: 58% }
 .pop-essenziale .pop-word { font-weight: 800; font-size: 46px }
@@ -192,7 +204,7 @@ a { color: #ff6a00; text-decoration: none }
 
 /* --- Vetro --- */
 .pop-vetro { background: linear-gradient(180deg, rgba(50,29,16,.86) 0%, rgba(20,12,7,.94) 100%); backdrop-filter: blur(20px) saturate(1.3); -webkit-backdrop-filter: blur(20px) saturate(1.3); color: #ffffff; border: 1px solid rgba(255,170,90,.3); border-radius: 26px; box-shadow: inset 0 1px 0 rgba(255,220,180,.18), 0 30px 100px rgba(0,0,0,.6), 0 0 90px var(--tint-glow) }
-.pop-vetro .pop-close { position: absolute; top: 22px; right: 22px; width: 40px; height: 40px; border: 1px solid rgba(255,255,255,.22); background: rgba(20,12,7,.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 2; transition: background .25s ease }
+.pop-vetro .pop-close { position: absolute; top: 22px; right: 22px; width: 44px; height: 44px; border: 1px solid rgba(255,255,255,.22); background: rgba(20,12,7,.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 2; transition: background .25s ease }
 .pop-vetro .pop-close:hover { background: rgba(255,255,255,.14) }
 .pop-vetro .pop-hero { position: relative; margin: 12px; height: 184px; border-radius: 18px; border: 1px solid rgba(255,170,90,.2); overflow: hidden; display: flex; align-items: center; justify-content: center; background: radial-gradient(70% 90% at 50% 105%, var(--tint), rgba(0,0,0,0) 70%), linear-gradient(rgba(255,154,0,.10) 1px, rgba(0,0,0,0) 1px) 50% 50%/24px 24px, linear-gradient(90deg, rgba(255,154,0,.10) 1px, rgba(0,0,0,0) 1px) 50% 50%/24px 24px, #140b06 }
 .pop-vetro .pop-plate { width: 68%; height: 58%; border-radius: 16px; background: #fff1e3; box-shadow: 0 0 0 1px rgba(255,255,255,.5), 0 14px 40px rgba(0,0,0,.5), 0 0 48px var(--tint-glow); display: flex; align-items: center; justify-content: center }
@@ -217,7 +229,7 @@ a { color: #ff6a00; text-decoration: none }
 .pop-carta .pop-series { display: flex; align-items: baseline; gap: 10px; font-family: Nunito, sans-serif; font-weight: 900; font-size: 14px; letter-spacing: .08em; text-transform: uppercase }
 .pop-carta .pop-series :first-child { color: #ff9a00 }
 .pop-carta .pop-series :nth-child(2) { color: #ffe2c7 }
-.pop-carta .pop-close { width: 40px; height: 40px; border: none; background: rgba(255,255,255,.1); transition: background .25s ease }
+.pop-carta .pop-close { width: 44px; height: 44px; border: none; background: rgba(255,255,255,.1); transition: background .25s ease }
 .pop-carta .pop-close:hover { background: rgba(255,255,255,.2) }
 .pop-carta .pop-sheet { border-radius: 22px; background: #fff6ec; overflow: hidden; display: flex; flex-direction: column }
 .pop-carta .pop-hero { position: relative; height: 200px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 24% 18%, rgba(255,255,255,.65) 0, rgba(255,255,255,0) 34%), radial-gradient(rgba(26,13,5,.14) 1.2px, rgba(0,0,0,0) 1.7px) 0 0/12px 12px, var(--tint) }
@@ -235,8 +247,15 @@ a { color: #ff6a00; text-decoration: none }
 .pop-carta .pop-link:hover { background: #ffe2c7; color: #1a0d05 }
 .pop-carta .pop-back { display: block; margin: 6px auto 0; height: 40px; color: #ffe2c7; font-family: Nunito, sans-serif; font-weight: 800 }
 
+/* ============ "Ruota il telefono" overlay ============ */
+.rotate-hint { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 24px; text-align: center; background: rgba(20,12,7,.94); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: fadeIn .4s ease both }
+.rotate-hint__icon { width: 72px; height: 72px; display: flex; align-items: center; justify-content: center; color: #ff9a00; animation: rotPhone 2.4s cubic-bezier(.4,0,.2,1) infinite }
+.rotate-hint__title { font-size: 34px; line-height: 1.1; color: #ff9a00; text-shadow: 0 4px 0 #1a0d05 }
+.rotate-hint__text { margin: 0; max-width: 300px; font-size: 16px; line-height: 1.5; color: #ffe2c7; text-wrap: pretty }
+.rotate-hint .btn-ghost { height: 48px }
+
 /* small utilities */
-.dim { color: rgba(255,255,255,.75) }
+.dim { color: rgba(255,255,255,.8) }
 .gap-4 { gap: 4px }
 .gap-12 { gap: 12px }
 .pop-essenziale .pop-stack-label { color: #767676 }

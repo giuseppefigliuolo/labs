@@ -10,7 +10,8 @@ export function TopBar({ actions }: { actions: Actions }) {
   const best = useUI(s => s.best)
   const lives = useUI(s => s.lives)
   const muted = useUI(s => s.muted)
-  const showHud = phase === 'play' || phase === 'over'
+  const complete = useUI(s => s.complete)
+  const showHud = phase === 'play' && !complete
   const muteLabel = muted ? 'Attiva audio' : 'Disattiva audio'
 
   return (
