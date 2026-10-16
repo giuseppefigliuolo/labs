@@ -1,5 +1,5 @@
 import { CONFIG } from '../config'
-import { asset } from '../data/projects'
+import { bitrockPng } from '../data/projects'
 import { useUI } from '../store'
 import type { Actions } from './actions'
 import { GearIcon, LifeIcon, SoundOffIcon, SoundOnIcon } from './icons'
@@ -18,7 +18,7 @@ export function TopBar({ actions }: { actions: Actions }) {
     <div className="topbar">
       <div className="topbar__left">
         <div className="brand">
-          <img src={asset('bitrock.png')} alt="Bitrock" />
+          <img src={bitrockPng} alt="Bitrock" />
           <div className="brand__name">Bitrock <span>Labs</span></div>
         </div>
         {showHud && (

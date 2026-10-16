@@ -1,4 +1,4 @@
-import { asset } from '../data/projects'
+import { bitrockPng } from '../data/projects'
 
 const canvas = (w: number, h = w) => {
   const c = document.createElement('canvas')
@@ -60,7 +60,7 @@ export function bugCanvas() {
 
 /** Bitrock mark (cropped from the horizontal logo) stacked over a BIT/ROCK wordmark. */
 export async function bitrockCanvas() {
-  const img = await loadImg(asset('bitrock.png'))
+  const img = await loadImg(bitrockPng)
   const [c, ctx] = canvas(640, 540)
   const sw = 870, sh = 848, dh = 300, dw = dh * sw / sh
   ctx.drawImage(img, 0, 0, sw, sh, (640 - dw) / 2, 10, dw, dh)
