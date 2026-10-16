@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, type CSSProperties } from 'react'
 import { CONFIG, TITLE_FONTS } from './config'
 import { Engine } from './game/Engine'
-import { useUI } from './store'
+import { cfg, useUI } from './store'
 import type { Actions } from './ui/actions'
 import { Background } from './ui/Background'
 import { Complete, GameOver } from './ui/EndScreens'
 import { Intro } from './ui/Intro'
 import { RotateHint } from './ui/RotateHint'
 import { ProjectPopup } from './ui/ProjectPopup'
+import { ProjectSheet } from './ui/ProjectSheet'
 import { Settings } from './ui/Settings'
 import { Toasts } from './ui/Toasts'
 import { TopBar } from './ui/TopBar'
@@ -27,6 +28,9 @@ export default function App() {
   const actions = useMemo<Actions>(() => ({
     openSettings: () => engine.current?.openSettings(),
     closeSettings: () => engine.current?.closeSettings(),
+    openList: () => engine.current?.openList(),
+    closeList: () => engine.current?.closeList(),
+    openFromList: (p, x, y) => engine.current?.openFromList(p, x, y),
     toggleMute: () => engine.current?.toggleMute(),
     restart: () => engine.current?.restart(),
     continueGame: () => engine.current?.continueGame(),
@@ -37,6 +41,8 @@ export default function App() {
   const phase = useUI(s => s.phase)
   const complete = useUI(s => s.complete)
   const settingsOpen = useUI(s => s.settingsOpen)
+  const listOpen = useUI(s => s.listOpen)
+  const sfondo = useUI(s => cfg('sfondo', s.settings))
   const popup = useUI(s => s.popup)
   const rotateHint = useUI(s => s.rotateHint)
   const flash = useUI(s => s.flash)
@@ -45,7 +51,7 @@ export default function App() {
 
   return (
     <div ref={rootRef} className="labs" data-screen-label="Labs" style={{ '--hf': TITLE_FONTS[CONFIG.titleFont].family } as CSSProperties}>
-      <Background kind={CONFIG.sfondo} />
+      <Background kind={sfondo} />
       <div ref={mountRef} className="fill" />
       <div className="flash" style={{ background: flashColor, opacity: flash, transition: flashT }} />
 
@@ -57,6 +63,7 @@ export default function App() {
       {phase === 'play' && !complete && <Tray actions={actions} />}
       {phase === 'over' && <GameOver actions={actions} />}
       {complete && <Complete actions={actions} />}
+      {listOpen && <ProjectSheet actions={actions} />}
       {settingsOpen && <Settings actions={actions} />}
       {popup && <ProjectPopup actions={actions} />}
       {rotateHint && <RotateHint />}

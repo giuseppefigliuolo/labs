@@ -294,14 +294,15 @@ export class Engine {
   }
 
   /**
-   * Publishes touch/portrait to the UI and closes "Ruota il telefono" once landscape.
+   * Publishes touch/portrait to the UI and closes "Ruota il telefono" once the
+   * viewport has the orientation it asked for.
    * The intro's layout depends on both (and on the CSS short-screen query), so the
    * "gioca" bubble is refitted after React has committed the new layout.
    */
   private syncDevice(touch: boolean, portrait: boolean) {
-    const s = ui()
-    if (touch === s.touch && portrait === s.portrait && (portrait || !s.rotateHint)) return
-    set({ touch, portrait, rotateHint: portrait && s.rotateHint })
+    const s = ui(), rotateHint = s.rotateHint && portrait === (s.rotateTo === 'landscape')
+    if (touch === s.touch && portrait === s.portrait && rotateHint === s.rotateHint) return
+    set({ touch, portrait, rotateHint })
     requestAnimationFrame(() => requestAnimationFrame(() => this.items.forEach(it => { if (it.alive && it.float) { this.fitIntro(it); it.g.scale.setScalar(it.r) } })))
   }
 
@@ -350,7 +351,7 @@ export class Engine {
   // ---------- public actions (wired to the UI) ----------
   openSettings = () => {
     const s = ui()
-    if (s.settingsOpen || s.popup || this.mode === 'focus' || this.mode === 'loading') return
+    if (s.settingsOpen || s.listOpen || s.popup || this.mode === 'focus' || this.mode === 'loading') return
     this.setPrev = this.mode
     if (this.mode === 'play') { this.mode = 'paused'; this.tweenTime(0, 0.3, ease.outCubic) }
     set({ settingsOpen: true })
@@ -360,6 +361,34 @@ export class Engine {
     if (!ui().settingsOpen) return
     set({ settingsOpen: false })
     if (this.setPrev === 'play' && this.mode === 'paused') { this.tweenTime(1, 0.6, ease.inCubic); this.after(0.3, () => { if (this.mode === 'paused') this.mode = 'play' }) }
+  }
+
+  /** Projects bottom sheet: pauses the game like the settings panel. */
+  openList = () => {
+    const s = ui()
+    if (this.mode !== 'play' || s.settingsOpen || s.listOpen || s.popup) return
+    this.mode = 'paused'; this.tweenTime(0, 0.3, ease.outCubic)
+    set({ listOpen: true, listShown: false })
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (ui().listOpen) set({ listShown: true }) }))
+  }
+
+  closeList = () => {
+    if (!ui().listShown) return
+    this.hideList()
+    if (this.mode === 'paused') { this.tweenTime(1, 0.6, ease.inCubic); this.after(0.3, () => { if (this.mode === 'paused') this.mode = 'play' }) }
+  }
+
+  /** A found project tapped in the sheet: its popup replaces the sheet and closing it resumes the game. */
+  openFromList = (data: Project, x: number, y: number) => {
+    if (!ui().listShown || ui().popup) return
+    this.hideList()
+    this.prevMode = 'play'; this.mode = 'focus'; this.tweenTime(0.035, 0.4, ease.outCubic)
+    this.openPopup(data, x, y)
+  }
+
+  private hideList() {
+    set({ listShown: false })
+    this.timeout(() => set({ listOpen: false }), 450)
   }
 
   toggleMute = () => {
@@ -390,7 +419,8 @@ export class Engine {
     this.closing = true
     set({ popupShown: false })
     this.timeout(() => { set({ popup: null }); this.closing = false }, ({ portal: 700, tilt: 560 } as Partial<Record<PopAnim, number>>)[ui().anim] || 480)
-    if (this.prevMode === 'over') { this.mode = 'over'; return }
+    if (ui().fresh) this.freshOff()
+    if (this.prevMode === 'over' || this.prevMode === 'complete') { this.mode = this.prevMode; return }
     const f0 = { ...this.fx }
     this.tween('fx', 0.95, ease.inOutQuart, p => { this.fx.fov = f0.fov + (this.fov - f0.fov) * p; this.fx.roll = f0.roll * (1 - p); this.fx.blur = f0.blur * (1 - p) })
     this.tweenCamera(this.camHome.clone(), new THREE.Vector3(), 0.95, ease.inOutQuart)
@@ -409,6 +439,12 @@ export class Engine {
       always: CONFIG.popupMode === 'ogni taglio',
       trail: CONFIG.trail
     }
+  }
+
+  private freshTO?: number
+  /** The tray pill of the project just found shrinks back to its initial 2.8s from now. */
+  private freshOff() {
+    this.clearTimeout(this.freshTO); this.freshTO = this.timeout(() => set({ fresh: null }), 2800)
   }
 
   private buzz(p: number | number[]) { try { if (navigator.vibrate) navigator.vibrate(p) } catch { /* unsupported */ } }
@@ -699,7 +735,8 @@ export class Engine {
     this.timeScale = 1; this.tw.delete('time')
     this.score = 0; this.lives = 3; this.spawnTimer = 0.5; this.spawnCount = 0
     this.mode = 'play'
-    set({ phase: 'play', score: 0, lives: 3, newRecord: false })
+    this.clearTimeout(this.freshTO)
+    set({ phase: 'play', score: 0, lives: 3, newRecord: false, fresh: null })
   }
 
   private loseLife(big: boolean) {
@@ -782,7 +819,7 @@ export class Engine {
       popup: data, popupShown: false,
       origin: `${Math.round(x)}px ${Math.round(y)}px`, ox: Math.round(x), oy: Math.round(y),
       anim: this.popAnim(), side: this.popSide || 1, ptint: data.id === 'bitrock' ? '#ff6a00' : data.tint,
-      backLabel: this.prevMode === 'over' ? 'Chiudi' : 'Torna al gioco'
+      backLabel: this.prevMode === 'over' || this.prevMode === 'complete' ? 'Chiudi' : 'Torna al gioco'
     })
     requestAnimationFrame(() => requestAnimationFrame(() => set({ popupShown: true })))
   }
@@ -891,7 +928,10 @@ export class Engine {
     let reveal = false
     if (it.type === 'project') {
       const id = it.data!.id, first = !this.found.includes(id)
-      if (first) { this.found = [...this.found, id]; upd.found = this.found; if (this.found.length === PROJECTS.length && !this.allDone) { this.allDone = true; this.allPending = true } }
+      if (first) {
+        this.found = [...this.found, id]; upd.found = this.found; upd.fresh = id; this.clearTimeout(this.freshTO)
+        if (this.found.length === PROJECTS.length && !this.allDone) { this.allDone = true; this.allPending = true }
+      }
       reveal = first || o.always
     } else if (it.type === 'bitrock') {
       reveal = !this.bitrockSeen || o.always; this.bitrockSeen = true
@@ -899,7 +939,11 @@ export class Engine {
     set(upd)
     if (perfect) { this.showPerfect(cp.x, cp.y - 64); this.buzz([0, 12, 30, 12]); this.bloomPulse = 1; this.caPulse = Math.max(this.caPulse, 0.4) }
     if (reveal && !this.focusPending) { this.focusPending = true; this.focusOn(it, it.data!) }
-    else if (perfect) { this.tweenTime(0.2, 0.06, ease.outCubic); this.after(0.28, () => { if (this.mode === 'play') this.tweenTime(1, 0.4, ease.inCubic) }) }
+    else {
+      // another popup is already on its way and this one won't open: its pill starts the countdown now
+      if (upd.fresh) this.freshOff()
+      if (perfect) { this.tweenTime(0.2, 0.06, ease.outCubic); this.after(0.28, () => { if (this.mode === 'play') this.tweenTime(1, 0.4, ease.inCubic) }) }
+    }
   }
 
   // ---------- loop ----------
@@ -954,9 +998,9 @@ export class Engine {
     if (Math.abs(this.camera.fov - fx.fov) > 1e-3) { this.camera.fov = fx.fov; this.camera.updateProjectionMatrix() }
     if (fx.blur !== this.blurNow) { this.blurNow = fx.blur; this.renderer!.domElement.style.filter = fx.blur > 0.05 ? `blur(${fx.blur.toFixed(2)}px)` : 'none' }
     this.caPulse *= Math.exp(-raw * 4); this.bloomPulse *= Math.exp(-raw * 3)
-    // Behind a still popup/settings panel/game over screen the scene barely moves, but every
+    // Behind a still popup/settings panel/projects sheet/game over screen the scene barely moves, but every
     // WebGL frame forces the overlay's backdrop blur to be recomputed: draw at half rate there.
-    const u = ui(), calm = (u.popupShown || u.settingsOpen || u.phase === 'over') && !this.tw.has('cam') && !this.tw.has('fx')
+    const u = ui(), calm = (u.popupShown || u.settingsOpen || u.listShown || u.phase === 'over') && !this.tw.has('cam') && !this.tw.has('fx')
     if (!calm || ++this.frameNo % 2 === 0) { if (this.post) this.renderPost(); else this.renderer!.render(this.scene, this.camera) }
     this.drawTrail()
     this.drawFx(dt, raw)

@@ -1,7 +1,8 @@
 import type { Settings as SettingsT } from '../config'
-import { cfg, setSetting, useUI } from '../store'
+import { cfg, setSetting, useUI, type Orient } from '../store'
 import type { Actions } from './actions'
 import { CloseIcon } from './icons'
+import { lockOrientation } from './orientation'
 
 type Opt<V> = [value: V, label: string, desc?: string]
 
@@ -11,6 +12,8 @@ const DIFF_DESC: Record<SettingsT['difficulty'], string> = {
   normale: 'Ritmo bilanciato tra progetti e bug.',
   difficile: 'Più bolle, più veloci e molti più bug.'
 }
+const BG: Opt<SettingsT['sfondo']>[] = [['legno', 'Legno'], ['griglia', 'Griglia'], ['punti', 'Punti'], ['orizzonte', 'Orizzonte'], ['carbonio', 'Carbonio'], ['ardesia', 'Ardesia'], ['minimale', 'Minimale']]
+const ORIENT: Opt<Orient>[] = [['portrait', 'Verticale'], ['landscape', 'Orizzontale']]
 const RULES: Opt<SettingsT['bugRule']>[] = [
   ['game over', 'Game over', 'Tagliare un bug chiude subito la partita.'],
   ['-1 vita', 'Perdi una vita', 'Tagliare un bug ti toglie una delle 3 vite, come quando lasci cadere un progetto.']
@@ -18,6 +21,8 @@ const RULES: Opt<SettingsT['bugRule']>[] = [
 
 export function Settings({ actions }: { actions: Actions }) {
   const settings = useUI(s => s.settings)
+  const touch = useUI(s => s.touch)
+  const portrait = useUI(s => s.portrait)
   const cur = <K extends keyof SettingsT>(k: K) => cfg(k, settings)
   const cls = (on: boolean, variant: string) => `opt opt--${variant}` + (on ? ' is-on' : '')
 
@@ -57,6 +62,24 @@ export function Settings({ actions }: { actions: Actions }) {
                 ))}
               </div>
             </div>
+            <div className="settings__group">
+              <div className="settings__label">Sfondo</div>
+              <div className="settings__grid settings__grid--bg">
+                {BG.map(([v, label]) => (
+                  <button key={v} data-ui="1" className={cls(cur('sfondo') === v, 'seg')} onClick={() => setSetting('sfondo', v)}>{label}</button>
+                ))}
+              </div>
+            </div>
+            {touch && (
+              <div className="settings__group">
+                <div className="settings__label">Orientamento schermo</div>
+                <div className="settings__grid settings__grid--2">
+                  {ORIENT.map(([v, label]) => (
+                    <button key={v} data-ui="1" className={cls(portrait === (v === 'portrait'), 'seg')} onClick={() => { actions.closeSettings(); lockOrientation(v) }}>{label}</button>
+                  ))}
+                </div>
+              </div>
+            )}
             <button data-ui="1" className="settings__done" onClick={actions.closeSettings}>Fatto</button>
           </div>
         </div>

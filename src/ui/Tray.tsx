@@ -1,14 +1,63 @@
+import { useEffect, useRef } from 'react'
 import { PROJECTS } from '../data/projects'
 import { useUI } from '../store'
 import type { Actions } from './actions'
-import { ProjectDots } from './ProjectDots'
+import { ChevronUpIcon } from './icons'
 
+const SWIPE = 28 // px upwards that open the projects sheet
+const SWIPE_GUARD = 500 // ms during which pill clicks are ignored after a swipe
+
+/**
+ * Counter + one pill per project (initial when found, "?" otherwise). The pill of a
+ * project just found widens to its full name until the engine clears `fresh`.
+ * Tapping the counter or swiping up on the tray opens the projects sheet.
+ */
 export function Tray({ actions }: { actions: Actions }) {
   const found = useUI(s => s.found)
+  const fresh = useUI(s => s.fresh)
+  const down = useRef<{ id: number; y: number } | null>(null)
+  const swipedAt = useRef(0)
+
+  // listened on window so a swipe that ends outside the tray still counts
+  useEffect(() => {
+    const up = (e: PointerEvent) => {
+      const d = down.current
+      down.current = null
+      if (!d || d.id !== e.pointerId || d.y - e.clientY < SWIPE) return
+      swipedAt.current = performance.now()
+      actions.openList()
+    }
+    const cancel = () => { down.current = null }
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', cancel)
+    return () => { window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', cancel) }
+  }, [actions])
+
   return (
     <div className="tray">
-      <div className="label dim">Progetti scoperti {found.length}/{PROJECTS.length}</div>
-      <div className="tray__row"><ProjectDots actions={actions} /></div>
+      <div data-ui="1" className="tray__box" onPointerDown={e => { down.current = { id: e.pointerId, y: e.clientY } }}>
+        <button data-ui="1" className="tray__count" onClick={actions.openList} aria-label="Apri la lista dei progetti">
+          <ChevronUpIcon />
+          <span className="label">Progetti scoperti {found.length}/{PROJECTS.length}</span>
+        </button>
+        <div className="tray__row">
+          {PROJECTS.map(p => {
+            const f = found.includes(p.id)
+            return (
+              <button
+                key={p.id}
+                data-ui="1"
+                className={'pill' + (f ? ' is-found' : '') + (fresh === p.id ? ' is-fresh' : '')}
+                title={f ? p.name : 'Da scoprire'}
+                onClick={e => { if (f && performance.now() - swipedAt.current > SWIPE_GUARD) actions.openFromUI(p, e.clientX, e.clientY) }}
+              >
+                <span>{f ? p.name[0] : '?'}</span>
+                <span className="pill__rest">{f ? p.name.slice(1) : ''}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }

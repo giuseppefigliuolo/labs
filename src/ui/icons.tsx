@@ -49,3 +49,11 @@ export const PhonePortraitIcon = () => (
     <rect x="6" y="2" width="12" height="20" rx="2" /><path d="M12 18h.01" />
   </svg>
 )
+
+export const ChevronUpIcon = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" {...line}><path d="m18 15-6-6-6 6" /></svg>
+)
+
+export const ChevronRightIcon = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" {...line}><path d="m9 18 6-6-6-6" /></svg>
+)

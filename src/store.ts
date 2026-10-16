@@ -8,6 +8,7 @@ const KEY_MUTED = 'bitrock-labs-muted'
 
 export type Phase = 'loading' | 'intro' | 'starting' | 'play' | 'over'
 export type PopAnim = 'scale' | 'swing' | 'blur' | 'portal' | 'tilt'
+export type Orient = 'portrait' | 'landscape'
 
 export type UIState = {
   phase: Phase
@@ -15,15 +16,21 @@ export type UIState = {
   best: number
   lives: number
   found: string[]
+  /** Project just discovered: its tray pill shows the full name for a while. */
+  fresh: string | null
   newRecord: boolean
   muted: boolean
   complete: boolean
   settings: Partial<Settings>
   settingsOpen: boolean
-  // device: coarse pointer, portrait viewport, "Ruota il telefono" overlay
+  // projects bottom sheet: mounted while listOpen, slid in while listShown
+  listOpen: boolean
+  listShown: boolean
+  // device: coarse pointer, portrait viewport, "Ruota il telefono" overlay and the orientation it asks for
   touch: boolean
   portrait: boolean
   rotateHint: boolean
+  rotateTo: Orient
   // project popup
   popup: Project | null
   popupShown: boolean
@@ -56,12 +63,12 @@ export const write = (k: string, v: string) => {
   try { localStorage.setItem(k, v) } catch { /* storage unavailable */ }
 }
 
-// Only player-facing settings are kept: older saves may still carry `sfondo` or
-// `popupStyle`, which are now project config and must be ignored.
+// Only player-facing settings are kept: older saves may still carry `popupStyle`,
+// which is project config and must be ignored.
 const initialSettings = (): Partial<Settings> => {
   try {
-    const { difficulty, bugRule } = JSON.parse(read(KEY_SETTINGS) || '{}') || {}
-    return { ...(difficulty && { difficulty }), ...(bugRule && { bugRule }) }
+    const { difficulty, bugRule, sfondo } = JSON.parse(read(KEY_SETTINGS) || '{}') || {}
+    return { ...(difficulty && { difficulty }), ...(bugRule && { bugRule }), ...(sfondo && { sfondo }) }
   } catch { return {} }
 }
 
@@ -71,14 +78,18 @@ export const useUI = create<UIState>(() => ({
   best: +(read(KEY_BEST) || 0),
   lives: 3,
   found: [],
+  fresh: null,
   newRecord: false,
   muted: read(KEY_MUTED) === '1',
   complete: false,
   settings: initialSettings(),
   settingsOpen: false,
+  listOpen: false,
+  listShown: false,
   touch: false,
   portrait: false,
   rotateHint: false,
+  rotateTo: 'landscape',
   popup: null,
   popupShown: false,
   origin: '50% 50%',
