@@ -3,6 +3,12 @@ import bitrockPng from '../assets/bitrock.png'
 import lsditaPng from '../assets/lsdita.png'
 import waterstreamColorPng from '../assets/waterstream-color.png'
 import waterstreamWhitePng from '../assets/waterstream-white.png'
+import confluentColorPng from '../assets/confluent-color.png'
+import confluentWhitePng from '../assets/confluent-white.png'
+import radicalbitColorPng from '../assets/radicalbit-color.png'
+import radicalbitWhitePng from '../assets/radicalbit-white.png'
+import databricksColorPng from '../assets/databricks-color.png'
+import databricksWhitePng from '../assets/databricks-white.png'
 
 export { bitrockPng }
 
@@ -27,10 +33,9 @@ export type Project = {
 export const PROJECTS: Project[] = [
   { id: 'lsdita', name: 'LSDITA', logo: lsditaPng, texSrc: lsditaPng, tint: '#ff4800', eyebrow: 'Progetto personale · Giuseppe Figliuolo', desc: 'Un progetto nato fuori orario e cresciuto un commit alla volta. Il codice è pubblico su GitHub.', stack: ['Open source', 'Web'], link: 'https://github.com/giuseppefigliuolo/LSDita', linkLabel: 'Vedi su GitHub' },
   { id: 'waterstream', name: 'Waterstream', logo: waterstreamColorPng, texSrc: waterstreamWhitePng, tint: '#ffb000', eyebrow: 'Prodotto · Bitrock', desc: 'Broker MQTT che usa Apache Kafka come unico storage: i messaggi dei dispositivi IoT arrivano direttamente negli stream, senza connettori intermedi.', stack: ['Kotlin', 'Apache Kafka', 'MQTT', 'Kubernetes'], link: 'https://waterstream.io', linkLabel: 'Vai al sito' },
-  { id: 'tidewatch', name: 'Tidewatch', word: 'tidewatch', accent: '#ff9a00', tint: '#ff9a00', eyebrow: '2025 · Team Data Engineering', desc: 'Osservabilità in tempo reale per pipeline di eventi: latenze, lag dei consumer e anomalie in un’unica vista.', stack: ['Kafka Streams', 'OpenTelemetry', 'Grafana', 'React'] },
-  { id: 'sintesi', name: 'Sintesi', word: 'sintesi', accent: '#ff6a00', tint: '#ff6a00', eyebrow: '2025 · Team AI', desc: 'Assistente basato su LLM che risponde alle domande sulla documentazione interna e cita sempre le fonti delle risposte.', stack: ['Python', 'RAG', 'pgvector', 'Next.js'] },
-  { id: 'orbita', name: 'Orbita', word: 'orbita', accent: '#ffc04d', tint: '#ffc04d', eyebrow: '2024 · Team Frontend', desc: 'Digital twin 3D di un magazzino: sensori IoT, stato dei macchinari e flussi di merci visualizzati nel browser in tempo reale.', stack: ['Three.js', 'WebSocket', 'MQTT', 'Scala'] },
-  { id: 'scia', name: 'Scia', word: 'scia', accent: '#ff8a3d', tint: '#ff8a3d', eyebrow: '2023 · Team Mobile', desc: 'App per il car pooling aziendale: abbina colleghi con percorsi simili e calcola la CO₂ risparmiata a ogni viaggio.', stack: ['React Native', 'Akka', 'GraphQL'] }
+  { id: 'confluent', name: 'Confluent', logo: confluentColorPng, texSrc: confluentWhitePng, tint: '#ff9a00', eyebrow: 'Premier Partner dal 2018 · Bitrock', desc: 'Progettiamo e gestiamo piattaforme di data streaming su Apache Kafka e Confluent, on-premise o in cloud, per clienti in retail, utility, assicurazioni e finanza.', stack: ['Apache Kafka', 'Kafka Streams', 'ksqlDB', 'Apache Flink'], link: 'https://bitrock.it/confluent-en', linkLabel: 'Scopri di più' },
+  { id: 'radicalbit', name: 'Radicalbit', logo: radicalbitColorPng, texSrc: radicalbitWhitePng, tint: '#ffc04d', eyebrow: 'Prodotto · Fortitude Group', desc: 'Piattaforma per gestire modelli ML e LLM in produzione: monitoraggio di drift e qualità delle risposte, AI Gateway multi-provider e strumenti per la conformità all’AI Act.', stack: ['MLOps', 'AI Observability', 'AI Gateway', 'LLM'], link: 'https://bitrock.it/radicalbit-en', linkLabel: 'Scopri di più' },
+  { id: 'databricks', name: 'Databricks', logo: databricksColorPng, texSrc: databricksWhitePng, tint: '#ff6a00', eyebrow: 'Partner dal 2022 · Bitrock', desc: 'Architetture dati su misura sulla Data Intelligence Platform di Databricks: ETL, analytics in tempo reale, machine learning e governance centralizzata dei dati.', stack: ['Lakehouse', 'Unity Catalog', 'Delta Sharing', 'Databricks SQL'], link: 'https://bitrock.it/databricks-en', linkLabel: 'Scopri di più' }
 ]
 
 export const BITROCK: Project = { id: 'bitrock', name: 'Chi siamo', logo: bitrockPng, tint: '#fff0d6', eyebrow: 'Bitrock', desc: 'Bitrock è un’azienda di consulenza informatica. Progettiamo e sviluppiamo software, piattaforme dati e prodotti digitali insieme ai nostri clienti. Labs raccoglie i progetti nati dalla curiosità del team.', stack: ['Consulenza IT', 'Sviluppo software', 'Data platform', 'Cloud'], link: 'https://bitrock.it', linkLabel: 'Scopri Bitrock', stackLabel: 'Di cosa ci occupiamo' }
