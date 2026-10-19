@@ -21,6 +21,8 @@ export type UIState = {
   newRecord: boolean
   muted: boolean
   complete: boolean
+  /** Logo frenzy in progress: shows the veil, time bar and counter. */
+  frenzy: boolean
   settings: Partial<Settings>
   settingsOpen: boolean
   // projects bottom sheet: mounted while listOpen, slid in while listShown
@@ -82,6 +84,7 @@ export const useUI = create<UIState>(() => ({
   newRecord: false,
   muted: read(KEY_MUTED) === '1',
   complete: false,
+  frenzy: false,
   settings: initialSettings(),
   settingsOpen: false,
   listOpen: false,

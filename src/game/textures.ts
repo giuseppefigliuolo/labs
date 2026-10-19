@@ -1,5 +1,3 @@
-import { bitrockPng } from '../data/projects'
-
 const canvas = (w: number, h = w) => {
   const c = document.createElement('canvas')
   c.width = w
@@ -55,21 +53,6 @@ export function bugCanvas() {
   ctx.strokeStyle = '#ff5a72'; ctx.lineWidth = 1.7; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
   ctx.shadowColor = 'rgba(255,59,92,.9)'; ctx.shadowBlur = 3
   ;['m8 2 1.88 1.88', 'M14.12 3.88 16 2', 'M9 7.13v-1a3.003 3.003 0 1 1 6 0v1', 'M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6', 'M12 20v-9', 'M6.53 9C4.6 8.8 3 7.1 3 5', 'M6 13H2', 'M3 21c0-2.1 1.7-3.9 3.8-4', 'M20.97 5c0 2.1-1.6 3.8-3.5 4', 'M22 13h-4', 'M17.2 17c2.1.1 3.8 1.9 3.8 4'].forEach(d => ctx.stroke(new Path2D(d)))
-  return c
-}
-
-/** Bitrock mark (cropped from the horizontal logo) stacked over a BIT/ROCK wordmark. */
-export async function bitrockCanvas() {
-  const img = await loadImg(bitrockPng)
-  const [c, ctx] = canvas(640, 540)
-  const sw = 870, sh = 848, dh = 300, dw = dh * sw / sh
-  ctx.drawImage(img, 0, 0, sw, sh, (640 - dw) / 2, 10, dw, dh)
-  ctx.fillStyle = '#ffffff'; ctx.textBaseline = 'alphabetic'; ctx.letterSpacing = '4px'
-  ctx.font = '800 92px Nunito'; const w1 = ctx.measureText('BIT').width
-  ctx.font = '300 92px Nunito'; const w2 = ctx.measureText('ROCK').width
-  const x0 = (640 - w1 - w2) / 2
-  ctx.font = '800 92px Nunito'; ctx.fillText('BIT', x0, 460)
-  ctx.font = '300 92px Nunito'; ctx.fillText('ROCK', x0 + w1, 460)
   return c
 }
 

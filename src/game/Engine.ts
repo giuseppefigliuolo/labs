@@ -3,10 +3,11 @@ import { CONFIG } from '../config'
 import { BITROCK, PROJECTS, type Project } from '../data/projects'
 import { cfg, saveBest, saveMuted, useUI, type PopAnim, type UIState } from '../store'
 import { Sfx } from './audio'
+import { buildBands, makeEnv, type Band } from './logo3d'
 import { PostFX } from './post'
 import { Quality } from './quality'
 import { HALF_F, HALF_V, LOGO_F, LOGO_V, SHELL_F, SHELL_V } from './shaders'
-import { bitrockCanvas, bugCanvas, fitImage, fleshCanvas, fleshVariant, loadImg, radialCanvas, wordmark } from './textures'
+import { bugCanvas, fitImage, fleshCanvas, fleshVariant, loadImg, radialCanvas, wordmark } from './textures'
 
 type EaseFn = (p: number) => number
 const ease = {
@@ -18,7 +19,7 @@ const ease = {
   lin: (p: number) => p
 }
 
-type Mode = 'loading' | 'intro' | 'starting' | 'play' | 'paused' | 'focus' | 'over' | 'complete'
+type Mode = 'loading' | 'intro' | 'starting' | 'play' | 'paused' | 'focus' | 'over' | 'complete' | 'frenzy'
 type ItemType = 'project' | 'bitrock' | 'bug' | 'start'
 type Tween = { e: number; dur: number; ease: EaseFn; fn: ((p: number) => void) | null; done?: () => void }
 type Pt = { x: number; y: number; t: number; lv?: number }
@@ -27,10 +28,16 @@ type Tex = { tex: THREE.Texture; geo: THREE.PlaneGeometry }
 
 type Item = {
   type: ItemType; data: Project | null; key: string; tint: string; danger: boolean
-  g: THREE.Group; shell: THREE.Group; logo: THREE.Mesh; spark: THREE.Mesh | null; ring?: THREE.Group
+  g: THREE.Group; shell: THREE.Group; logo: THREE.Object3D; spark: THREE.Mesh | null; ring?: THREE.Group
   r: number; pos: THREE.Vector3; vel: THREE.Vector3; spin: THREE.Vector3; ph: number; alive: boolean
   float?: boolean; baseY: number
+  /** The 3D Bitrock logo ("frutto"): cut radius in world units and its halo. */
+  fruit?: boolean; cut?: number; halo?: THREE.Sprite
 }
+/** Raffica: the sliced logo hangs in the middle and every blade pass on it is worth a point. */
+type Frenzy = { it: Item; t: number; dur: number; hits: number; open: number; punch: number; base: number; wob: THREE.Vector3; kick: THREE.Vector3[]; inside: boolean }
+/** Sparks, blade marks, the logo's flying bands and its fading halo. Bands follow the game clock, the rest real time. */
+type Part = { o: THREE.Object3D; kind: 'spark' | 'mark' | 'band' | 'halo'; vel: THREE.Vector3; w?: THREE.Vector3; g: number; drag: number; life: number; max: number; s0: THREE.Vector3 }
 type Half = { g: THREE.Group; vel: THREE.Vector3; axis: THREE.Vector3; tumble: number; spinZ: number; ringMat: THREE.MeshBasicMaterial; age: number; pos: THREE.Vector3; l1?: boolean; dead?: boolean }
 type Stain = { c: HTMLCanvasElement; x: number; y: number; life: number }
 type Drop = { x: number; y: number; vx: number; vy: number; r: number; col: string; life: number }
@@ -71,11 +78,14 @@ export class Engine {
   private arcGeo!: THREE.TorusGeometry
   private capGeo!: THREE.CircleGeometry
   private radialTex!: THREE.CanvasTexture
+  private bands: Band[] = []
+  private planeGeo!: THREE.PlaneGeometry
   private fleshTex: Record<string, THREE.CanvasTexture> = {}
   private tex: Record<string, Tex> = {}
   private dust!: THREE.Points
   private Z = new THREE.Vector3(0, 0, 1)
   private v = new THREE.Vector3()
+  private fv = new THREE.Vector3()
   private quality = new Quality()
   // Materials shared by every bubble/half of the same look. They are never
   // disposed mid-game: disposing the last user of a shader makes three delete
@@ -107,6 +117,9 @@ export class Engine {
   private setPrev: Mode = 'play'
   private items: Item[] = []
   private halves: Half[] = []
+  private frenzy: Frenzy | null = null
+  private parts: Part[] = []
+  private hud: Partial<Record<'fill' | 'num' | 'fx', HTMLElement>> = {}
   private queue: { t: number; type: ItemType; data?: Project }[] = []
   private score = 0
   private lives = 3
@@ -168,7 +181,10 @@ export class Engine {
     this.root.removeEventListener('pointermove', this.onMove)
     window.removeEventListener('pointerup', this.onUp)
     window.removeEventListener('pointercancel', this.onUp)
+    window.removeEventListener('blur', this.onBlur)
+    document.removeEventListener('visibilitychange', this.onBlur)
     this.post?.dispose()
+    this.scene?.environment?.dispose(); this.bands.forEach(b => b.geo.dispose())
     this.mats.forEach(m => m.dispose()); this.keep.forEach(m => m.dispose())
     if (this.renderer) { this.renderer.dispose(); this.renderer.domElement.remove() }
     this.scan?.remove()
@@ -212,6 +228,13 @@ export class Engine {
     this.tctx = tcan.getContext('2d')!
 
     this.scene = new THREE.Scene()
+    this.bands = buildBands()
+    // reflections and the two lights only reach PBR materials (the logo): bubbles and shaders are unlit
+    this.scene.environment = makeEnv(renderer)
+    const key = new THREE.DirectionalLight('#fff4e6', 1.6); key.position.set(3, 4, 5)
+    const rim = new THREE.DirectionalLight('#ff8a3a', 1.4); rim.position.set(-4, 2, -3)
+    // the output is linear (no sRGB encoding): a strong ambient keeps the bands orange whichever way they face
+    this.scene.add(key, rim, new THREE.AmbientLight('#ffffff', 1.2))
     this.camera = new THREE.PerspectiveCamera(this.fov, 1, 0.1, 100)
     this.camHome = new THREE.Vector3(0, 0, this.camZ)
     this.camBase = this.camHome.clone(); this.camLook = new THREE.Vector3()
@@ -224,6 +247,7 @@ export class Engine {
     this.arcGeo = new THREE.TorusGeometry(1.5, 0.035, 8, 40, Math.PI / 3)
     this.capGeo = new THREE.CircleGeometry(1.0, seg)
     this.radialTex = new THREE.CanvasTexture(radialCanvas())
+    this.planeGeo = new THREE.PlaneGeometry(1, 1)
     try { this.post = new PostFX(q.msaa) } catch (e) { console.warn(e); this.post = null }
 
     await this.buildTextures()
@@ -238,6 +262,7 @@ export class Engine {
     this.root.addEventListener('pointerdown', this.onDown)
     this.root.addEventListener('pointermove', this.onMove)
     window.addEventListener('pointerup', this.onUp); window.addEventListener('pointercancel', this.onUp)
+    window.addEventListener('blur', this.onBlur); document.addEventListener('visibilitychange', this.onBlur)
 
     this.toIntro()
     this.last = performance.now()
@@ -257,7 +282,6 @@ export class Engine {
       if (p.texSrc) add(p.id, fitImage(await loadImg(p.texSrc)))
       else add(p.id, wordmark(p.word!, p.accent!))
     }
-    add('bitrock', await bitrockCanvas(), 1.3, 1.1)
     add('bug', bugCanvas(), 1.0, 1.0)
     add('start', wordmark('gioca', '#ff9a00'), 1.7)
   }
@@ -320,11 +344,18 @@ export class Engine {
    */
   private async warmUp() {
     const r = this.renderer!
-    for (const p of [...PROJECTS, BITROCK]) this.flesh(p.tint, p.id)
+    for (const p of PROJECTS) this.flesh(p.tint, p.id)
     this.flesh('dark', 'bug')
     for (const t of [this.radialTex, ...Object.values(this.fleshTex), ...Object.values(this.tex).map(t => t.tex)]) r.initTexture(t)
-    const its = [this.makeItem('project', PROJECTS[0]), this.makeItem('bitrock', BITROCK), this.makeItem('bug', null)]
+    const its = [this.makeItem('project', PROJECTS[0]), this.makeItem('bug', null)]
     for (const it of its) { it.pos.set(0, 0, 0); this.slice(it, { x: 1, y: 0 }) }
+    // the logo is never sliced: it only needs its PBR programs, a spark and a blade mark compiled (and kept alive)
+    const fruit = this.makeItem('bitrock', BITROCK)
+    const sparkMat = new THREE.SpriteMaterial({ map: this.radialTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })
+    const markMat = new THREE.MeshBasicMaterial({ map: this.radialTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })
+    this.keep.push(sparkMat, markMat)
+    const warm = [new THREE.Sprite(sparkMat), new THREE.Mesh(this.planeGeo, markMat)]
+    this.scene.add(...warm)
     try { await r.compileAsync(this.scene, this.camera) } catch (e) { console.warn(e) }
     // drop the warm-up objects but keep their per-half materials referenced
     for (const h of this.halves) {
@@ -332,6 +363,7 @@ export class Engine {
       this.scene.remove(h.g)
     }
     this.halves = []; this.items = []; this.stains = []; this.drops = []
+    this.removeItem(fruit); this.scene.remove(...warm)
     if (this.dead) return
     // first post-processing frame allocates the render targets and compiles the passes
     if (this.post) this.renderPost(); else r.render(this.scene, this.camera)
@@ -351,7 +383,7 @@ export class Engine {
   // ---------- public actions (wired to the UI) ----------
   openSettings = () => {
     const s = ui()
-    if (s.settingsOpen || s.listOpen || s.popup || this.mode === 'focus' || this.mode === 'loading') return
+    if (s.settingsOpen || s.listOpen || s.popup || this.mode === 'focus' || this.mode === 'loading' || this.mode === 'frenzy') return
     this.setPrev = this.mode
     if (this.mode === 'play') { this.mode = 'paused'; this.tweenTime(0, 0.3, ease.outCubic) }
     set({ settingsOpen: true })
@@ -408,7 +440,7 @@ export class Engine {
   }
 
   openFromUI = (data: Project, x: number, y: number) => {
-    if (ui().popup || this.mode === 'focus') return
+    if (ui().popup || this.mode === 'focus' || this.mode === 'frenzy') return
     this.prevMode = this.mode
     if (this.mode === 'play') { this.mode = 'focus'; this.tweenTime(0.035, 0.4, ease.outCubic) }
     this.openPopup(data, x, y)
@@ -445,6 +477,14 @@ export class Engine {
   /** The tray pill of the project just found shrinks back to its initial 2.8s from now. */
   private freshOff() {
     this.clearTimeout(this.freshTO); this.freshTO = this.timeout(() => set({ fresh: null }), 2800)
+  }
+
+  /** "+1" at the hit and the big "+N" at the end, as temporary elements of the frenzy layer. */
+  private fxText(txt: string, x: number, y: number, big: boolean) {
+    const fx = this.hudEl('fx'); if (!fx) return
+    const d = document.createElement('div'); d.textContent = txt; d.className = 'fx-text ' + (big ? 'fx-total' : 'fx-plus')
+    d.style.left = x + 'px'; d.style.top = y + 'px'
+    fx.appendChild(d); this.timeout(() => d.remove(), big ? 1800 : 800)
   }
 
   private buzz(p: number | number[]) { try { if (navigator.vibrate) navigator.vibrate(p) } catch { /* unsupported */ } }
@@ -514,7 +554,33 @@ export class Engine {
 
   private tintOf(type: ItemType, data: Project | null) { return type === 'bug' ? '#ff3b30' : type === 'start' ? '#ff6a00' : data!.tint }
 
+  /** The 3D Bitrock logo that stands in for the "Chi siamo" bubble. */
+  private makeFruit(data: Project | null) {
+    const g = new THREE.Group(), band = new THREE.Group(), logo = new THREE.Object3D()
+    // Satin rather than glossy, closer to the bubbles. The bands are drawn after the (transparent, non
+    // depth-writing) bubbles: otherwise a bubble crossing the logo at the same depth gets cut through by it.
+    for (const b of this.bands) {
+      const m = new THREE.Mesh(b.geo, this.shared('band|' + b.color, () => new THREE.MeshPhysicalMaterial({ color: b.color, roughness: 0.55, clearcoat: 0.3, clearcoatRoughness: 0.45, envMapIntensity: 0.55, transparent: true })))
+      m.renderOrder = 10; band.add(m)
+    }
+    // halo as wide and faint as a bubble's glow (2.6 r)
+    const s = this.r * 0.95
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.radialTex, color: new THREE.Color('#ff7a1a'), transparent: true, opacity: 0.3, depthWrite: false, blending: THREE.AdditiveBlending }))
+    halo.scale.setScalar(2.6 * this.r / s); halo.position.z = -0.8; halo.renderOrder = 1
+    g.add(band, halo, logo)
+    // the logo is about 2 units wide: at 0.95 r it is as big as a bubble
+    g.scale.setScalar(s)
+    // spins in the screen plane like the other fruits; the frame loop adds a gentle 3D sway (never edge-on)
+    const sg = (a: number, b: number) => (Math.random() < 0.5 ? -1 : 1) * (a + Math.random() * (b - a))
+    band.rotation.z = Math.random() * Math.PI * 2
+    this.scene.add(g)
+    const it: Item = { type: 'bitrock', data, key: 'bitrock', tint: '#ff7a1a', danger: false, g, shell: band, logo, spark: null, r: this.r, pos: new THREE.Vector3(), vel: new THREE.Vector3(), spin: new THREE.Vector3(0, 0, sg(0.8, 1.6)), ph: Math.random() * 6, alive: true, baseY: 0, fruit: true, cut: 0.95 * this.r, halo }
+    this.items.push(it)
+    return it
+  }
+
   private makeItem(type: ItemType, data: Project | null) {
+    if (type === 'bitrock') return this.makeFruit(data)
     const g = new THREE.Group(), danger = type === 'bug'
     const tint = this.tintOf(type, data)
     const key = type === 'project' ? data!.id : type
@@ -522,7 +588,7 @@ export class Engine {
     const back = new THREE.Mesh(this.sphereGeo, this.shellMat(tint, THREE.BackSide, danger ? 0.9 : 0.45, danger)); back.renderOrder = 0
     const front = new THREE.Mesh(this.sphereGeo, this.shellMat(tint, THREE.FrontSide, 1, danger)); front.renderOrder = 3
     shell.add(back, front)
-    const glowA = danger ? 0.5 : (type === 'bitrock' ? 0.7 : 0.3)
+    const glowA = danger ? 0.5 : 0.3
     const glow = new THREE.Mesh(this.glowGeo, this.basic(`glow|${tint}|${glowA}`, { map: this.radialTex, color: new THREE.Color(tint), transparent: true, opacity: glowA, depthWrite: false, blending: THREE.AdditiveBlending })); glow.renderOrder = 1
     const logo = this.logoMesh(key, 0)
     g.add(shell, glow, logo)
@@ -732,6 +798,7 @@ export class Engine {
 
   private startGame() {
     this.clearAll()
+    this.clearFrenzy()
     this.timeScale = 1; this.tw.delete('time')
     this.score = 0; this.lives = 3; this.spawnTimer = 0.5; this.spawnCount = 0
     this.mode = 'play'
@@ -778,7 +845,7 @@ export class Engine {
   }
 
   /** Slow-mo + camera move onto the sliced bubble, then the popup. */
-  private focusOn(it: Item, data: Project) {
+  private focusOn(it: Pick<Item, 'pos' | 'tint'>, data: Project) {
     const E = ease, st = CONFIG.zoomStyle
     this.prevMode = 'play'; this.mode = 'focus'
     const tgt = it.pos.clone(); tgt.z = 0
@@ -863,6 +930,8 @@ export class Engine {
   private onDown = (e: PointerEvent) => this.pDown(e)
   private onMove = (e: PointerEvent) => this.pMove(e)
   private onUp = (e: PointerEvent) => this.pUp(e)
+  // a pointerup that happens outside the window is never delivered: forget the stroke when focus is lost
+  private onBlur = () => { this.ptrDown = false; this.lastPt = null; this.strokeHits = 0; if (this.frenzy) this.frenzy.inside = false }
 
   private isUI(e: PointerEvent) { return !!(e.target as Element | null)?.closest?.('[data-ui]') }
   // root offset is cached in resize(): reading the rect here would force a layout on every pointer event
@@ -872,6 +941,8 @@ export class Engine {
     if (this.isUI(e)) return
     this.sfx.ctx()
     this.ptrDown = true; this.lastPt = this.localPt(e); this.strokeHits = 0
+    // a finger that lands on the logo doesn't score: only entering the circle does
+    if (this.frenzy) this.frenzy.inside = this.inFrenzyCircle(this.lastPt)
   }
 
   private pUp(e: PointerEvent) { this.ptrDown = false; if (e.pointerType !== 'mouse') this.lastPt = null; this.strokeHits = 0 }
@@ -882,13 +953,13 @@ export class Engine {
     const a = this.lastPt; this.lastPt = p
     if (!a) return
     if (e.pointerType !== 'mouse' && !this.ptrDown) return
-    if (this.mode !== 'play' && this.mode !== 'intro') return
+    if (this.mode !== 'play' && this.mode !== 'intro' && this.mode !== 'frenzy') return
     if (this.isUI(e) && !this.ptrDown) return
     const dx = p.x - a.x, dy = p.y - a.y, len = Math.hypot(dx, dy)
     if (len < 2) return
     const speed = len / Math.max(1, p.t - a.t)
     // with a mouse, a fast swipe slices even without holding the button
-    if (!this.ptrDown && speed < 0.6) { this.strokeHits = 0; return }
+    if (!this.ptrDown && speed < 0.6) { this.strokeHits = 0; if (this.frenzy) this.frenzy.inside = this.inFrenzyCircle(p); return }
     const sh = this.strokeHits || 0, lv = sh >= 5 ? 2 : sh >= 3 ? 1 : 0; p.lv = lv; if (a.lv === undefined) a.lv = lv
     if (this.opt().trail) {
       if (!this.trail.length || p.t - this.trail[this.trail.length - 1].t > 120) this.trail.push(a)
@@ -905,11 +976,17 @@ export class Engine {
     const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy
     const dir = { x: dx / Math.sqrt(L2), y: -dy / Math.sqrt(L2) }
     const pxPerUnit = this.H / this.viewH
+    if (this.mode === 'frenzy') { this.frenzySlice(a, b); return }
     for (const it of this.items.slice()) {
       if (!it.alive) continue
       const c = this.toScreen(it.pos)
       let t = ((c.x - a.x) * dx + (c.y - a.y) * dy) / L2; t = Math.max(0, Math.min(1, t))
-      const d = Math.hypot(a.x + dx * t - c.x, a.y + dy * t - c.y)
+      const hx = a.x + dx * t, hy = a.y + dy * t, d = Math.hypot(hx - c.x, hy - c.y)
+      if (it.fruit) {
+        // the first pass starts the frenzy and already counts as 1; bubbles in the same stroke are left alone
+        if (d < it.cut! * pxPerUnit && this.mode === 'play') { this.startFrenzy(it); this.fruitHit(a, b, { x: hx, y: hy }); return }
+        continue
+      }
       // perp: distance of the cut from the centre, in radii (≈0 = perfect cut)
       if (d < it.r * pxPerUnit * 0.95) this.hit(it, dir, Math.abs((c.x - a.x) * dy - (c.y - a.y) * dx) / Math.sqrt(L2) / (it.r * pxPerUnit))
     }
@@ -928,10 +1005,10 @@ export class Engine {
     }
     if (this.mode !== 'play') return
     this.strokeHits = (this.strokeHits || 0) + 1
-    const idx = it.data ? PROJECTS.indexOf(it.data) : -1, base = it.type === 'bitrock' ? 392 : [523, 587, 659, 784, 880, 1047][idx] || 660
+    const idx = it.data ? PROJECTS.indexOf(it.data) : -1, base = [523, 587, 659, 784, 880, 1047][idx] || 660
     this.sfx.play('pop', { f: base * Math.pow(2, Math.min(this.strokeHits - 1, 7) / 6), n: this.strokeHits }); this.buzz(8)
     const perfect = perp < 0.2, cp = this.toScreen(it.pos)
-    let pts = it.type === 'bitrock' ? 3 : 1
+    let pts = 1
     if (perfect) pts += 2
     if (this.strokeHits >= 3) { pts += this.strokeHits === 3 ? 3 : 1; this.showCombo(this.strokeHits, cp.x, cp.y); this.bloomPulse = Math.max(this.bloomPulse, 0.5) }
     this.score += pts
@@ -944,8 +1021,6 @@ export class Engine {
         if (this.found.length === PROJECTS.length && !this.allDone) { this.allDone = true; this.allPending = true }
       }
       reveal = first || o.always
-    } else if (it.type === 'bitrock') {
-      reveal = !this.bitrockSeen || o.always; this.bitrockSeen = true
     }
     set(upd)
     if (perfect) { this.showPerfect(cp.x, cp.y - 64); this.buzz([0, 12, 30, 12]); this.bloomPulse = 1; this.caPulse = Math.max(this.caPulse, 0.4) }
@@ -955,6 +1030,177 @@ export class Engine {
       if (upd.fresh) this.freshOff()
       if (perfect) { this.tweenTime(0.2, 0.06, ease.outCubic); this.after(0.28, () => { if (this.mode === 'play') this.tweenTime(1, 0.4, ease.inCubic) }) }
     }
+  }
+
+  // ---------- frutto Bitrock: raffica ----------
+  private hudEl(k: 'fill' | 'num' | 'fx') {
+    return this.hud[k] ??= this.root.querySelector<HTMLElement>(`[data-frenzy="${k}"]`) ?? undefined
+  }
+
+  private toWorld(x: number, y: number) {
+    const c = this.camera.position, d = this.fv.set(x / this.W * 2 - 1, -(y / this.H * 2 - 1), 0.5).unproject(this.camera).sub(c).normalize()
+    return c.clone().addScaledVector(d, -c.z / d.z)
+  }
+
+  /** Blade circle of the hanging logo, in px: a bit wider than the cut radius so a pass can't slip by. */
+  private frenzyRadius(f: Frenzy) { return 0.92 * f.it.g.scale.x * 1.15 * this.H / this.viewH }
+
+  private inFrenzyCircle(p: { x: number; y: number }) {
+    const f = this.frenzy; if (!f) return false
+    const c = this.toScreen(f.it.pos)
+    return Math.hypot(p.x - c.x, p.y - c.y) < this.frenzyRadius(f)
+  }
+
+  private startFrenzy(it: Item) {
+    const w = (a: number) => Math.atan2(Math.sin(a), Math.cos(a)), r = it.shell.rotation
+    r.set(w(r.x), w(r.y), w(r.z))
+    this.mode = 'frenzy'
+    this.frenzy = { it, t: 0, dur: 3, hits: 0, open: 0, punch: 0, base: it.g.scale.x, wob: new THREE.Vector3(), kick: [0, 1, 2, 3].map(() => new THREE.Vector3()), inside: true }
+    // the logo is driven by tickFrenzy from now on
+    this.items = this.items.filter(i => i !== it)
+    this.tweenTime(0.12, 0.3, ease.outCubic)
+    const num = this.hudEl('num'); if (num) num.textContent = '0'
+    set({ frenzy: true })
+  }
+
+  /** In the frenzy only the logo can be cut, and only when the blade enters its circle (not on every frame it stays inside). */
+  private frenzySlice(a: Pt, b: Pt) {
+    const f = this.frenzy; if (!f) return
+    const c = this.toScreen(f.it.pos), R = this.frenzyRadius(f), dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy
+    const t = Math.max(0, Math.min(1, ((c.x - a.x) * dx + (c.y - a.y) * dy) / L2)), hx = a.x + dx * t, hy = a.y + dy * t
+    if (Math.hypot(hx - c.x, hy - c.y) < R && !f.inside) this.fruitHit(a, b, { x: hx, y: hy })
+    f.inside = Math.hypot(b.x - c.x, b.y - c.y) < R
+  }
+
+  private fruitHit(a: Pt, b: Pt, hp: { x: number; y: number }) {
+    const f = this.frenzy!, s = f.it.g.scale.x
+    f.hits++; this.score += 1; f.punch = 1
+    set({ score: this.score })
+    const dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1, sx = dx / l, sy = dy / l
+    this.lastDir = { x: sx, y: -sy }
+    f.wob.x += sy * 3.5; f.wob.y += sx * 3.5; f.wob.z += (Math.random() - 0.5) * 3
+    f.open = Math.min(1, f.open + 0.075)
+    f.kick.forEach(k => k.add(this.fv.set((Math.random() - 0.5) * 0.22, (Math.random() - 0.5) * 0.22, (Math.random() - 0.5) * 0.3)))
+    const wp = this.toWorld(hp.x, hp.y), wd = new THREE.Vector3(sx, -sy, 0)
+    this.slashMark(wp, wd, s)
+    for (let i = 0; i < 8; i++) {
+      const vel = wd.clone().multiplyScalar((1.5 + Math.random() * 3) * s).add(new THREE.Vector3((Math.random() - 0.5) * 2.4 * s, (Math.random() - 0.5) * 2.4 * s, Math.random() * s))
+      this.spark(wp, vel, ['#ffd27a', '#ff9a00', '#fff2dc'][i % 3], (0.17 + Math.random() * 0.13) * s, 0.35 + Math.random() * 0.3, 3 * s)
+    }
+    this.fxText('+1', hp.x + (Math.random() - 0.5) * 30, hp.y - 24, false)
+    const num = this.hudEl('num')
+    if (num) { num.textContent = String(f.hits); num.animate([{ transform: 'scale(1.45)' }, { transform: 'scale(1)' }], { duration: 240, easing: 'cubic-bezier(.16,1,.3,1)' }) }
+    this.sfx.play('pop', { f: 392 * Math.pow(2, Math.min(f.hits, 18) / 12), n: f.hits }); this.buzz(8)
+  }
+
+  private tickFrenzy(f: Frenzy, raw: number) {
+    const it = f.it, k = 1 - Math.exp(-7 * raw), short = this.H < 520
+    // the logo comes to the middle; on short screens the bar and counter take more room: lower and a bit smaller
+    it.pos.lerp(this.fv.set(0, this.viewH * (short ? -0.06 : 0.05), 0), k)
+    f.base += (Math.min(this.viewH * (short ? 0.15 : 0.17), this.viewW * 0.36) - f.base) * k
+    f.punch *= Math.exp(-9 * raw); f.wob.multiplyScalar(Math.exp(-5 * raw))
+    const kr = 1 - Math.exp(-4 * raw), rot = it.shell.rotation
+    rot.x += f.wob.x * raw + (0.15 - rot.x) * kr
+    rot.y += f.wob.y * raw + (-0.3 - rot.y) * kr
+    rot.z += f.wob.z * raw + (0 - rot.z) * kr
+    it.g.position.copy(it.pos)
+    it.g.scale.setScalar(f.base * (1 + 0.12 * f.punch))
+    it.shell.children.forEach((m, i) => {
+      const e = this.bands[i].ex; f.kick[i].multiplyScalar(Math.exp(-8 * raw))
+      m.position.set(e[0] * f.open * 0.42, e[1] * f.open * 0.42, e[2] * f.open).add(f.kick[i])
+    })
+    const halo = it.halo!, mat = halo.material as THREE.SpriteMaterial
+    mat.opacity += (0.28 + 0.25 * f.punch - mat.opacity) * (1 - Math.exp(-8 * raw))
+    halo.scale.setScalar(halo.scale.x + (4.2 - halo.scale.x) * k)
+    f.t += raw
+    const fill = this.hudEl('fill'); if (fill) fill.style.transform = `scaleX(${Math.max(0, 1 - f.t / f.dur)})`
+    if (f.t >= f.dur) this.fruitFinale(f)
+  }
+
+  private fruitFinale(f: Frenzy) {
+    const it = f.it, s = it.g.scale.x, center = it.pos.clone(), vh = this.viewH
+    this.frenzy = null
+    set({ frenzy: false })
+    this.tweenTime(1, 0.25, ease.outCubic)
+    // bands fly off along their own axis; they follow the game clock, so they hang mid-air when the popup zooms in
+    it.g.updateMatrixWorld(true)
+    const q = it.shell.getWorldQuaternion(new THREE.Quaternion())
+    ;([...it.shell.children] as THREE.Mesh[]).forEach((m, i) => {
+      const e = this.bands[i].ex
+      this.scene.attach(m)
+      const d = new THREE.Vector3(e[0], e[1], 0).applyQuaternion(q)
+      if (d.length() < 0.1) d.set((Math.random() - 0.5) * 0.6, 0.1, 1)
+      d.normalize().multiplyScalar(0.7 * vh).add(new THREE.Vector3((Math.random() - 0.5) * 0.26 * vh, 0.5 * vh, (Math.random() - 0.5) * 0.2 * vh))
+      this.parts.push({ o: m, kind: 'band', vel: d, w: new THREE.Vector3((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 6), g: 1.6 * vh, drag: 0, life: 2.4, max: 2.4, s0: m.scale.clone() })
+    })
+    // what is left of the logo (the halo) fades out
+    this.parts.push({ o: it.g, kind: 'halo', vel: new THREE.Vector3(), g: 0, drag: 0, life: 0.6, max: 0.6, s0: it.g.scale.clone() })
+    for (let i = 0; i < 28; i++) {
+      const a = Math.random() * Math.PI * 2, sp = (2 + Math.random() * 4) * s
+      this.spark(center, new THREE.Vector3(Math.cos(a) * sp, Math.sin(a) * sp, Math.random() * 2 * s), ['#ffd27a', '#ff9a00', '#fff2dc', '#ff6a00'][i % 4], (0.2 + Math.random() * 0.2) * s, 0.5 + Math.random() * 0.5, 2 * s)
+    }
+    const fx = this.hudEl('fx')
+    if (fx) { const fl = document.createElement('div'); fl.className = 'fx-flash'; fx.appendChild(fl); this.timeout(() => fl.remove(), 600) }
+    const c = this.toScreen(center)
+    this.fxText('+' + f.hits, c.x, c.y, true)
+    this.sfx.play('pop', { f: 784, n: 1 }); this.timeout(() => this.sfx.play('pop', { f: 784 * 1.5, n: 1 }), 90); this.buzz(30)
+    this.after(0.5, () => {
+      const o = this.opt()
+      if (!this.bitrockSeen || o.always) {
+        this.bitrockSeen = true; this.focusPending = true
+        this.focusOn({ pos: center, tint: '#ff6a00' }, BITROCK)
+      } else this.mode = 'play'
+    })
+  }
+
+  /** Drops everything of an unfinished frenzy (new game). */
+  private clearFrenzy() {
+    if (this.frenzy) this.removeObj(this.frenzy.it.g)
+    this.frenzy = null
+    for (const p of this.parts) this.removeObj(p.o)
+    this.parts = []
+    set({ frenzy: false })
+  }
+
+  private addPart(o: THREE.Object3D, kind: Part['kind'], vel: THREE.Vector3, life: number, g = 0, drag = 0) {
+    this.scene.add(o)
+    this.parts.push({ o, kind, vel, g, drag, life, max: life, s0: o.scale.clone() })
+  }
+
+  private spark(p: THREE.Vector3, vel: THREE.Vector3, color: string, size: number, life: number, g: number) {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.radialTex, color: new THREE.Color(color), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }))
+    sp.position.copy(p); sp.position.z += 0.4; sp.scale.setScalar(size); sp.renderOrder = 12
+    this.addPart(sp, 'spark', vel, life, g, 1.5)
+  }
+
+  private slashMark(p: THREE.Vector3, d: THREE.Vector3, s: number) {
+    const m = new THREE.Mesh(this.planeGeo, new THREE.MeshBasicMaterial({ map: this.radialTex, color: new THREE.Color('#fff3e0'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }))
+    m.position.set(p.x, p.y, 0.8); m.rotation.z = Math.atan2(d.y, d.x); m.scale.set(3.7 * s, 0.17 * s, 1); m.renderOrder = 12
+    this.addPart(m, 'mark', new THREE.Vector3(), 0.22)
+  }
+
+  private stepParts(dt: number, raw: number) {
+    if (!this.parts.length) return
+    const hw = this.viewW / 2 + 1, bottom = -this.viewH / 2
+    this.parts = this.parts.filter(p => {
+      const d = p.kind === 'band' ? dt : raw, o = p.o
+      p.life -= d
+      let dead = p.life <= 0
+      if (!dead) {
+        p.vel.y -= p.g * d; if (p.drag) p.vel.multiplyScalar(Math.exp(-p.drag * d)); o.position.addScaledVector(p.vel, d)
+        const k = p.life / p.max
+        if (p.kind === 'spark') { (o as THREE.Sprite).material.opacity = Math.min(1, k * 1.5); o.scale.copy(p.s0).multiplyScalar(0.3 + 0.7 * k) }
+        else if (p.kind === 'mark') ((o as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = k
+        else if (p.kind === 'halo') ((o.children[1] as THREE.Sprite).material as THREE.SpriteMaterial).opacity *= Math.exp(-8 * d)
+        else if (p.kind === 'band') {
+          if (p.life < 0.35) o.scale.copy(p.s0).multiplyScalar(p.life / 0.35)
+          if (p.w) { o.rotation.x += p.w.x * d; o.rotation.y += p.w.y * d; o.rotation.z += p.w.z * d }
+          dead = o.position.y < bottom - p.s0.x * 2 || Math.abs(o.position.x) > hw + p.s0.x * 2
+        }
+      }
+      if (dead) this.removeObj(o)
+      return !dead
+    })
   }
 
   // ---------- loop ----------
@@ -973,7 +1219,9 @@ export class Engine {
       if (it.float) { it.pos.y = it.baseY + Math.sin(this.uTime.value * 1.6) * 0.14; it.pos.x = Math.sin(this.uTime.value * 0.9) * 0.08 }
       else { it.vel.y -= this.g * dt; it.pos.addScaledVector(it.vel, dt) }
       it.g.position.copy(it.pos)
-      it.shell.rotation.x += it.spin.x * dt; it.shell.rotation.y += it.spin.y * dt; it.shell.rotation.z += it.spin.z * dt
+      if (it.fruit) { const u = this.uTime.value; it.shell.rotation.x = Math.sin(u * 1.1 + it.ph) * 0.35; it.shell.rotation.y = Math.sin(u * 1.4 + it.ph * 1.7) * 0.55 }
+      else { it.shell.rotation.x += it.spin.x * dt; it.shell.rotation.y += it.spin.y * dt }
+      it.shell.rotation.z += it.spin.z * dt
       it.logo.rotation.z = Math.sin(this.uTime.value * 1.3 + it.ph) * 0.1
       if (it.ring) it.ring.rotation.z -= raw * 1.4
       if (it.spark) it.spark.scale.setScalar(0.2 + Math.random() * 0.12)
@@ -983,6 +1231,8 @@ export class Engine {
       }
     }
     this.items = this.items.filter(i => i.alive)
+    if (this.frenzy) this.tickFrenzy(this.frenzy, raw)
+    this.stepParts(dt, raw)
 
     for (const h of this.halves.slice()) {
       h.age += dt; h.vel.y -= this.g * dt; h.pos.addScaledVector(h.vel, dt)

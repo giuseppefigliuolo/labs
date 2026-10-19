@@ -5,6 +5,7 @@ import { cfg, useUI } from './store'
 import type { Actions } from './ui/actions'
 import { Background } from './ui/Background'
 import { Complete, GameOver } from './ui/EndScreens'
+import { Frenzy } from './ui/Frenzy'
 import { Intro } from './ui/Intro'
 import { RotateHint } from './ui/RotateHint'
 import { ProjectPopup } from './ui/ProjectPopup'
@@ -55,6 +56,7 @@ export default function App() {
       <div ref={mountRef} className="fill" />
       <div className="flash" style={{ background: flashColor, opacity: flash, transition: flashT }} />
 
+      <Frenzy />
       <TopBar actions={actions} />
       <Toasts />
 
