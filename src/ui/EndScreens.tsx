@@ -2,7 +2,6 @@ import { useRef } from 'react'
 import { CTA_HREF, PROJECTS } from '../data/projects'
 import { useUI } from '../store'
 import type { Actions } from './actions'
-import { ChevronRightIcon } from './icons'
 import { ProjectList } from './ProjectList'
 
 function GameOverHalf({ half }: { half: 'top' | 'bot' }) {
@@ -120,13 +119,7 @@ export function Complete({ actions, leaving }: { actions: Actions; leaving?: boo
           <CompleteTitle />
           <div className="complete__bonus outlined">Bonus +10</div>
         </div>
-        <div className="done-pills">
-          {PROJECTS.map(p => (
-            <button key={p.id} data-ui="1" className="done-pill" style={{ background: p.tint }} onClick={e => actions.openFromUI(p, e.clientX, e.clientY)}>
-              {p.name}<ChevronRightIcon size={16} />
-            </button>
-          ))}
-        </div>
+        <ProjectList onOpen={actions.openFromUI} mini all />
         <p className="complete__text">Ogni progetto di Labs è nato dalla curiosità di qualcuno del team. Se ti piace costruire cose così, parliamone.</p>
         <div className="actions">
           <a data-ui="1" className="btn-primary" href={CTA_HREF} target="_blank" rel="noopener">Lavora con noi</a>
