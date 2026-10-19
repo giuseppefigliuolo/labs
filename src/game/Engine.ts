@@ -121,6 +121,7 @@ export class Engine {
   private viewW = 0
   private viewH = 0
   private r = 1
+  private rIntro = 1
   private g = 1
 
   // game state
@@ -333,7 +334,9 @@ export class Engine {
     this.viewW = this.viewH * this.camera.aspect
     const touch = !!window.matchMedia?.('(pointer: coarse)').matches, portrait = innerHeight > innerWidth
     // bigger bubbles on a phone held sideways (Fruit Ninja style); on narrow screens the width caps them at ~1/5 of it
-    this.r = Math.min(this.viewW * 0.105, this.viewH * (touch && !portrait ? 0.11 : 0.09))
+    const rH = this.viewH * (touch && !portrait ? 0.11 : 0.09)
+    this.r = Math.min(this.viewW * 0.105, rH)
+    this.rIntro = Math.min(this.viewW * 0.16, rH) // the "gioca" bubble keeps its larger size on narrow screens
     this.syncDevice(touch, portrait)
     this.g = this.viewH * 1.0
     const rr = this.root.getBoundingClientRect(); this.rootX = rr.left; this.rootY = rr.top
@@ -827,19 +830,19 @@ export class Engine {
 
   /** Sizes and centres the "gioca" bubble in the gap between the intro copy and the hint. */
   private fitIntro(it: Item) {
-    it.r = this.r * 1.15; it.baseY = -this.viewH * 0.1
+    it.r = this.rIntro * 1.15; it.baseY = -this.viewH * 0.1
     if (!this.H) return
     const p = this.root.querySelector<HTMLElement>('[data-intro-text]'), h = this.root.querySelector<HTMLElement>('[data-intro-hint]'); if (!p || !h) return
     const top = p.offsetTop + p.offsetHeight + 16, bot = h.offsetTop - 12; if (bot <= top) return
     const k = this.viewH / this.H, half = (bot - top) / 2 * k
-    it.r = Math.max(this.r * 0.7, Math.min(it.r, (half - 0.16) / 1.56))
+    it.r = Math.max(this.rIntro * 0.7, Math.min(it.r, (half - 0.16) / 1.56))
     it.baseY = this.viewH / 2 - (top + bot) / 2 * k
   }
 
   private toIntro() {
     this.mode = 'intro'
     const it = this.makeItem('start', null)
-    it.float = true; it.r = this.r * 1.15; it.g.scale.setScalar(it.r); it.baseY = -this.viewH * 0.1
+    it.float = true; it.r = this.rIntro * 1.15; it.g.scale.setScalar(it.r); it.baseY = -this.viewH * 0.1
     it.pos.set(0, it.baseY, 0); it.g.position.copy(it.pos)
     const ring = new THREE.Group()
     for (let k = 0; k < 4; k++) { const col = k % 2 ? '#ff9a00' : '#ff6a00', m = new THREE.Mesh(this.arcGeo, this.basic('arc|' + col, { color: new THREE.Color(col), transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending })); m.rotation.z = k * Math.PI / 2; m.renderOrder = 4; ring.add(m) }
