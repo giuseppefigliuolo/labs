@@ -35,7 +35,12 @@ type Item = {
   fruit?: boolean; cut?: number; halo?: THREE.Sprite
 }
 /** Raffica: the sliced logo hangs in the middle and every blade pass on it is worth a point. */
-type Frenzy = { it: Item; t: number; dur: number; hits: number; open: number; punch: number; base: number; wob: THREE.Vector3; kick: THREE.Vector3[]; inside: boolean }
+type Frenzy = { it: Item; t: number; dur: number; hits: number; open: number; punch: number; base: number; wob: THREE.Vector3; kick: THREE.Vector3[]; inside: boolean
+  /**
+   * Current leg of the blade over the logo: where it started (last hit or touch down), px travelled since,
+   * and its direction once measurable. Turning back from it counts as a new pass.
+   */
+  from: { x: number; y: number } | null; travel: number; dir: Dir | null }
 /** Sparks, blade marks, the logo's flying bands and its fading halo. Bands follow the game clock, the rest real time. */
 type Part = { o: THREE.Object3D; kind: 'spark' | 'mark' | 'band' | 'halo'; vel: THREE.Vector3; w?: THREE.Vector3; g: number; drag: number; life: number; max: number; s0: THREE.Vector3 }
 type Half = { g: THREE.Group; vel: THREE.Vector3; axis: THREE.Vector3; tumble: number; spinZ: number; ringMat: THREE.MeshBasicMaterial; age: number; pos: THREE.Vector3; l1?: boolean; dead?: boolean }
@@ -942,7 +947,7 @@ export class Engine {
     this.sfx.ctx()
     this.ptrDown = true; this.lastPt = this.localPt(e); this.strokeHits = 0
     // a finger that lands on the logo doesn't score: only entering the circle does
-    if (this.frenzy) this.frenzy.inside = this.inFrenzyCircle(this.lastPt)
+    if (this.frenzy) { const f = this.frenzy; f.inside = this.inFrenzyCircle(this.lastPt); f.from = { x: this.lastPt.x, y: this.lastPt.y }; f.travel = 0; f.dir = null }
   }
 
   private pUp(e: PointerEvent) { this.ptrDown = false; if (e.pointerType !== 'mouse') this.lastPt = null; this.strokeHits = 0 }
@@ -1055,7 +1060,7 @@ export class Engine {
     const w = (a: number) => Math.atan2(Math.sin(a), Math.cos(a)), r = it.shell.rotation
     r.set(w(r.x), w(r.y), w(r.z))
     this.mode = 'frenzy'
-    this.frenzy = { it, t: 0, dur: 3, hits: 0, open: 0, punch: 0, base: it.g.scale.x, wob: new THREE.Vector3(), kick: [0, 1, 2, 3].map(() => new THREE.Vector3()), inside: true }
+    this.frenzy = { it, t: 0, dur: 3, hits: 0, open: 0, punch: 0, base: it.g.scale.x, wob: new THREE.Vector3(), kick: [0, 1, 2, 3].map(() => new THREE.Vector3()), inside: true, from: null, travel: 0, dir: null }
     // the logo is driven by tickFrenzy from now on
     this.items = this.items.filter(i => i !== it)
     this.tweenTime(0.12, 0.3, ease.outCubic)
@@ -1063,12 +1068,26 @@ export class Engine {
     set({ frenzy: true })
   }
 
-  /** In the frenzy only the logo can be cut, and only when the blade enters its circle (not on every frame it stays inside). */
+  /**
+   * In the frenzy only the logo can be cut. A pass counts when the blade enters its circle, or when it
+   * turns back (> 90°) while still over it: the logo is big, so a back-and-forth swipe may never leave it.
+   * Not on every frame the blade stays inside, and a minimum travel keeps a still, jittering finger from scoring.
+   */
   private frenzySlice(a: Pt, b: Pt) {
     const f = this.frenzy; if (!f) return
-    const c = this.toScreen(f.it.pos), R = this.frenzyRadius(f), dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy
+    const c = this.toScreen(f.it.pos), R = this.frenzyRadius(f), dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy, len = Math.sqrt(L2)
     const t = Math.max(0, Math.min(1, ((c.x - a.x) * dx + (c.y - a.y) * dy) / L2)), hx = a.x + dx * t, hy = a.y + dy * t
-    if (Math.hypot(hx - c.x, hy - c.y) < R && !f.inside) this.fruitHit(a, b, { x: hx, y: hy })
+    if (Math.hypot(hx - c.x, hy - c.y) < R) {
+      if (!f.inside) this.fruitHit(a, b, { x: hx, y: hy })
+      else {
+        f.travel += len
+        if (!f.dir) {
+          // the leg's direction comes from the displacement since its start, not from one (possibly mid-turn) segment
+          const o = f.from ?? a, ex = b.x - o.x, ey = b.y - o.y, el = Math.hypot(ex, ey)
+          if (el > R * 0.15) f.dir = { x: ex / el, y: ey / el }
+        } else if ((dx * f.dir.x + dy * f.dir.y) / len < -0.1 && f.travel > R * 0.35) this.fruitHit(a, b, { x: hx, y: hy })
+      }
+    }
     f.inside = Math.hypot(b.x - c.x, b.y - c.y) < R
   }
 
@@ -1077,6 +1096,7 @@ export class Engine {
     f.hits++; this.score += 1; f.punch = 1
     set({ score: this.score })
     const dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1, sx = dx / l, sy = dy / l
+    f.from = { x: b.x, y: b.y }; f.travel = 0; f.dir = null
     this.lastDir = { x: sx, y: -sy }
     f.wob.x += sy * 3.5; f.wob.y += sx * 3.5; f.wob.z += (Math.random() - 0.5) * 3
     f.open = Math.min(1, f.open + 0.075)
