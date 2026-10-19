@@ -123,7 +123,8 @@ function Carta({ p, close, backLabel }: CardProps) {
   const idx = PROJECTS.findIndex(x => x.id === p.id)
   const pad = (n: number) => String(n).padStart(2, '0')
   return (
-    <div data-ui="1" className="pop-card pop-carta">
+    <div data-ui="1" className="pop-card pop-carta" aria-labelledby={`pop-title-${p.id}`}>
+      <h2 id={`pop-title-${p.id}`} className="pop-name">{p.name}</h2>
       <div className="pop-top">
         <div className="pop-series">
           <span>Labs</span>
@@ -136,9 +137,8 @@ function Carta({ p, close, backLabel }: CardProps) {
           <div className="pop-stamp">Scoperto</div>
           <div className="pop-plate"><Logo p={p} /></div>
         </div>
-        <div className="pop-banner"><h2 className="pop-name">{p.name}</h2></div>
+        <div className="pop-banner"><div className="pop-pill">{p.eyebrow}</div></div>
         <div className="pop-body">
-          <div className="eyebrow pop-eyebrow">{p.eyebrow}</div>
           <p className="pop-desc">{p.desc}</p>
           <div className="pop-chips">{p.stack.map(s => <span key={s} className="pop-chip">{s}</span>)}</div>
           <Ctas p={p} center />

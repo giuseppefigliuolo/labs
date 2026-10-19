@@ -396,10 +396,10 @@ a { color: #ff6a00; text-decoration: none }
 .pop-carta .pop-hero { position: relative; height: 200px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 24% 18%, rgba(255,255,255,.65) 0, rgba(255,255,255,0) 34%), radial-gradient(rgba(26,13,5,.14) 1.2px, rgba(0,0,0,0) 1.7px) 0 0/12px 12px, var(--tint) }
 .pop-carta .pop-stamp { position: absolute; top: 14px; left: 14px; padding: 4px 10px; border: 2.5px solid #1a0d05; border-radius: 8px; background: rgba(255,255,255,.75); transform: rotate(-7deg); font-family: Nunito, sans-serif; font-weight: 900; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #1a0d05 }
 .pop-carta .pop-plate { width: 70%; height: 54%; border-radius: 16px; background: #ffffff; box-shadow: 0 12px 32px rgba(26,13,5,.35); display: flex; align-items: center; justify-content: center }
-.pop-carta .pop-banner { display: flex; justify-content: center; margin-top: -24px; position: relative; padding: 0 20px }
-.pop-carta .pop-name { padding: 10px 24px; border-radius: 100px; background: #1a0d05; border: 3px solid var(--tint); font-size: 24px; font-weight: 900; line-height: 1.1; letter-spacing: -0.01em; color: #ffffff; text-align: center }
+.pop-carta .pop-banner { display: flex; justify-content: center; margin-top: -20px; position: relative; padding: 0 20px }
+.pop-carta .pop-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap }
+.pop-carta .pop-pill { max-width: 100%; box-sizing: border-box; padding: 10px 20px; border-radius: 100px; background: #1a0d05; border: 3px solid var(--tint); font-family: Nunito, sans-serif; font-weight: 900; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; line-height: 1.2; color: #ffffff; text-align: center; text-wrap: balance }
 .pop-carta .pop-body { padding: 16px 24px 18px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px }
-.pop-carta .pop-eyebrow { color: #7a5a44; font-weight: 800 }
 .pop-carta .pop-desc { color: #3d2618 }
 .pop-carta .pop-chips { justify-content: center; gap: 6px }
 .pop-carta .pop-chip { padding: 6px 12px; border-radius: 6px; background: var(--tint); color: #1a0d05; font-size: 13px; font-weight: 800 }
@@ -494,8 +494,8 @@ a { color: #ff6a00; text-decoration: none }
   .pop-carta .pop-hero { height: 120px }
   .pop-carta .pop-stamp { top: 10px; left: 10px; padding: 3px 8px; border-width: 2px; font-size: 10px }
   .pop-carta .pop-plate { border-radius: 12px }
-  .pop-carta .pop-banner { margin-top: -18px }
-  .pop-carta .pop-name { padding: 7px 18px; border-width: 2.5px; font-size: 18px }
+  .pop-carta .pop-banner { margin-top: -16px }
+  .pop-carta .pop-pill { padding: 8px 16px; border-width: 2.5px }
   .pop-carta .pop-body { padding: 12px 18px 14px; gap: 10px }
   .pop-carta .pop-chip { padding: 4px 9px; font-size: 11px }
   .pop-carta .pop-back { margin-top: 2px; height: 32px }
