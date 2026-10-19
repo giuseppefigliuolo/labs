@@ -1,6 +1,7 @@
 import { PROJECTS, type Project } from '../data/projects'
 import { useUI } from '../store'
 import { ChevronRightIcon } from './icons'
+import { Orb } from './Orb'
 
 /**
  * One row per project, used by the projects sheet and the game over screen.
@@ -13,7 +14,7 @@ export function ProjectList({ onOpen, compact }: { onOpen: (p: Project, x: numbe
       {PROJECTS.map(p => found.includes(p.id)
         ? (
           <button key={p.id} data-ui="1" className="plist__row is-found" onClick={e => onOpen(p, e.clientX, e.clientY)}>
-            <span className="plist__dot">{p.name[0]}</span>
+            <Orb p={p} className="plist__dot" />
             <span className="plist__copy">
               <span className="plist__name">{p.name}</span>
               <span className="plist__sub">{p.eyebrow}</span>
