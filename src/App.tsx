@@ -10,6 +10,7 @@ import { Intro } from './ui/Intro'
 import { RotateHint } from './ui/RotateHint'
 import { ProjectPopup } from './ui/ProjectPopup'
 import { ProjectSheet } from './ui/ProjectSheet'
+import { usePresence } from './ui/presence'
 import { Settings } from './ui/Settings'
 import { Toasts } from './ui/Toasts'
 import { TopBar } from './ui/TopBar'
@@ -49,6 +50,11 @@ export default function App() {
   const flash = useUI(s => s.flash)
   const flashColor = useUI(s => s.flashColor)
   const flashT = useUI(s => s.flashT)
+  // kept mounted a little after closing, to fade out instead of vanishing
+  const introOn = usePresence(phase === 'intro')
+  const overOn = usePresence(phase === 'over')
+  const completeOn = usePresence(complete)
+  const settingsOn = usePresence(settingsOpen)
 
   return (
     <div ref={rootRef} className="labs" data-screen-label="Labs" style={{ '--hf': TITLE_FONTS[CONFIG.titleFont].family } as CSSProperties}>
@@ -69,12 +75,12 @@ export default function App() {
           <div className="loading__text">Caricamento</div>
         </div>
       )}
-      {phase === 'intro' && <Intro />}
+      {introOn && <Intro leaving={phase !== 'intro'} />}
       {phase === 'play' && !complete && <Tray actions={actions} />}
-      {phase === 'over' && <GameOver actions={actions} />}
-      {complete && <Complete actions={actions} />}
+      {overOn && <GameOver actions={actions} leaving={phase !== 'over'} />}
+      {completeOn && <Complete actions={actions} leaving={!complete} />}
       {listOpen && <ProjectSheet actions={actions} />}
-      {settingsOpen && <Settings actions={actions} />}
+      {settingsOn && <Settings actions={actions} leaving={!settingsOpen} />}
       {popup && <ProjectPopup actions={actions} />}
       {rotateHint && <RotateHint />}
     </div>

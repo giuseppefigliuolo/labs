@@ -19,7 +19,7 @@ const RULES: Opt<SettingsT['bugRule']>[] = [
   ['-1 vita', 'Perdi una vita', 'Tagliare un bug ti toglie una delle 3 vite, come quando lasci cadere un progetto.']
 ]
 
-export function Settings({ actions }: { actions: Actions }) {
+export function Settings({ actions, leaving }: { actions: Actions; leaving?: boolean }) {
   const settings = useUI(s => s.settings)
   const touch = useUI(s => s.touch)
   const portrait = useUI(s => s.portrait)
@@ -28,9 +28,9 @@ export function Settings({ actions }: { actions: Actions }) {
 
   return (
     <>
-      <div data-ui="1" className="scrim settings-scrim" onClick={actions.closeSettings} />
+      <div data-ui="1" className={'scrim settings-scrim' + (leaving ? ' is-leaving' : '')} onClick={actions.closeSettings} />
       <div className="modal-stage">
-        <div data-ui="1" className="settings" role="dialog" aria-label="Impostazioni">
+        <div data-ui="1" className={'settings' + (leaving ? ' is-leaving' : '')} role="dialog" aria-label="Impostazioni">
           <div className="settings__head">
             <h2 className="settings__title">Impostazioni</h2>
             <button data-ui="1" className="close-btn settings__close" onClick={actions.closeSettings} aria-label="Chiudi">

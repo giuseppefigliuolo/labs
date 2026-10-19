@@ -5,10 +5,10 @@ import { goLandscape } from './orientation'
 
 // The engine measures [data-intro-text] and [data-intro-hint] to fit the
 // "gioca" bubble in the gap between them, so keep both as direct children.
-export function Intro() {
+export function Intro({ leaving }: { leaving?: boolean }) {
   const showRotate = useUI(s => s.touch && s.portrait)
   return (
-    <div className="intro">
+    <div className={'intro' + (leaving ? ' is-leaving' : '')}>
       <h1 className="intro__title" aria-label="Labs">
         <span className="intro__word" aria-hidden="true">
           {[...'Labs'].map((ch, i) => (

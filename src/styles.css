@@ -5,6 +5,8 @@ a { color: #ff6a00; text-decoration: none }
 @keyframes swipeHint { 0% { transform: translateX(-56px) rotate(-20deg); opacity: 0 } 25% { opacity: 1 } 70% { opacity: 1 } 100% { transform: translateX(56px) rotate(-20deg); opacity: 0 } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(18px) } to { opacity: 1; transform: none } }
 @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes fadeOut { from { opacity: 1 } to { opacity: 0 } }
+@keyframes fadeDown { from { opacity: 1; transform: none } to { opacity: 0; transform: translateY(18px) } }
 @keyframes labsIn { 0% { opacity: 0; transform: translateY(-.5em) scale(.6) rotate(-8deg) } 60% { opacity: 1 } 100% { opacity: 1; transform: none } }
 @keyframes labsFloat { 0%, 100% { transform: translateY(0) rotate(-.8deg) } 50% { transform: translateY(-.03em) rotate(.8deg) } }
 @keyframes labsSway { 0%, 100% { transform: rotateX(8deg) rotateY(-5deg) } 50% { transform: rotateX(5deg) rotateY(5deg) } }
@@ -231,10 +233,35 @@ a { color: #ff6a00; text-decoration: none }
 .over__score { font-size: clamp(56px,15vh,96px); line-height: 1.1; color: #ffffff; -webkit-text-stroke-width: 4px; text-shadow: 0 6px 0 #1a0d05; animation: goPop .6s cubic-bezier(.34,1.56,.64,1) 1.05s both }
 .over__record { font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.75); animation: fadeIn .5s ease 1.35s both }
 .over__record.is-new { color: #ff9a00 }
-.btn-primary { height: 52px; padding: 0 36px; border-radius: 100px; border: none; background: #ff6a00; color: #ffffff; display: flex; align-items: center; font-family: Nunito, sans-serif; font-weight: 800; font-size: 17px; cursor: pointer; text-decoration: none; transition: background .25s cubic-bezier(.4,0,.2,1) }
-.btn-primary:hover { background: #ff4800; color: #ffffff }
-.btn-ghost { height: 52px; padding: 0 24px; border-radius: 100px; border: 1.5px solid rgba(255,255,255,.4); background: transparent; color: #ffffff; font-family: Nunito, sans-serif; font-weight: 700; font-size: 16px; cursor: pointer; transition: border-color .25s cubic-bezier(.4,0,.2,1) }
-.btn-ghost:hover { border-color: #ffffff }
+/* ============ CTA "Caramella" ============
+   Primary: .btn-primary, .pop-cta, .settings__done. Secondary: .btn-ghost, .pop-link.
+   The press is only a visual translateY, so nothing around the button moves. */
+.btn-primary, .pop-cta, .settings__done {
+  --sh: inset 0 2px 0 rgba(255,230,190,.75), inset 0 -1px 0 rgba(150,40,0,.3), 0 1px 3px rgba(0,0,0,.2); --ring: 0 0 0 0 transparent;
+  height: 56px; padding: 0 30px; box-sizing: border-box; border: none; border-radius: 100px; display: flex; align-items: center; justify-content: center; cursor: pointer; text-decoration: none;
+  background: linear-gradient(180deg, #ffa640 0%, #ff6a00 55%, #e04e00 100%); box-shadow: var(--sh), var(--ring);
+  color: #ffffff; font-family: Nunito, sans-serif; font-weight: 900; font-size: 18px; text-shadow: 0 2px 0 rgba(140,40,0,.55);
+  transition: filter .2s ease, transform .12s ease, box-shadow .12s ease
+}
+.btn-primary:active, .pop-cta:active, .settings__done:active { transform: translateY(2px); --sh: inset 0 2px 0 rgba(255,230,190,.5), inset 0 0 0 rgba(150,40,0,0), 0 0 2px rgba(0,0,0,.2) }
+.btn-primary:focus-visible, .pop-cta:focus-visible, .settings__done:focus-visible { outline: none; --ring: 0 0 0 3px #fff4e0 }
+.btn-ghost, .pop-link {
+  --sh: inset 0 1px 0 rgba(255,255,255,.3), 0 1px 4px rgba(0,0,0,.2);
+  height: 56px; padding: 0 24px; box-sizing: border-box; border: 1px solid rgba(255,255,255,.22); border-radius: 100px; display: flex; align-items: center; justify-content: center; cursor: pointer; text-decoration: none;
+  background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.05)); box-shadow: var(--sh);
+  color: #ffffff; font-family: Nunito, sans-serif; font-weight: 800; font-size: 16px;
+  transition: background .2s ease, transform .12s ease, box-shadow .12s ease
+}
+.btn-ghost:active, .pop-link:active { transform: translateY(2px) }
+.btn-ghost:focus-visible, .pop-link:focus-visible { outline: 2px solid #fff4e0; outline-offset: 2px }
+@media (hover: hover) {
+  .btn-primary:hover, .pop-cta:hover, .settings__done:hover { filter: brightness(1.08); color: #ffffff }
+  .btn-ghost:hover, .pop-link:hover { background: linear-gradient(180deg, rgba(255,255,255,.24), rgba(255,255,255,.08)); color: #ffffff }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary:active, .pop-cta:active, .settings__done:active, .btn-ghost:active, .pop-link:active { transform: none }
+  .btn-ghost:active, .pop-link:active { --sh: inset 0 1px 0 rgba(255,255,255,.3), 0 0 2px rgba(0,0,0,.2) }
+}
 .complete__label { color: #ffe2c7 }
 .complete__title { font-size: clamp(34px,min(12vw,9vh),72px); line-height: 1; color: #ff9a00; -webkit-text-stroke-width: 5px; text-shadow: 0 7px 0 #1a0d05; text-wrap: balance }
 .complete__bonus { font-size: 24px; color: #ffffff }
@@ -243,7 +270,11 @@ a { color: #ff6a00; text-decoration: none }
 .done-pill:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.35) }
 .complete__text { margin: 0; max-width: 340px; font-size: 17px; line-height: 1.5; color: #ffe2c7; text-wrap: pretty }
 .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px }
-.actions .btn-primary { padding: 0 32px }
+
+/* ============ Exit (overlays kept mounted while they fade out, see ui/presence.ts: .35s = EXIT_MS) ============ */
+.is-leaving, .is-leaving * { pointer-events: none !important }
+.intro.is-leaving, .screen.is-leaving, .settings-scrim.is-leaving { animation: fadeOut .35s ease both }
+.settings.is-leaving { animation: fadeDown .3s cubic-bezier(.4,0,1,1) both }
 
 /* ============ Modal shell (settings + popup) ============ */
 .scrim { position: absolute; inset: 0; background: rgba(20,12,7,.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px) }
@@ -276,8 +307,7 @@ a { color: #ff6a00; text-decoration: none }
 .opt__name { font-weight: 800; font-size: 15px }
 .opt__desc { font-size: 14px; line-height: 1.45; font-weight: 400; color: #cdb39e }
 .opt.is-on .opt__desc { color: #ecd3bd }
-.settings__done { align-self: stretch; height: 50px; border-radius: 100px; border: none; background: #ff6a00; box-shadow: inset 0 1px 0 rgba(255,210,160,.6), 0 8px 28px rgba(255,106,0,.45); color: #ffffff; font-family: Nunito, sans-serif; font-weight: 900; font-size: 16px; cursor: pointer; transition: background .25s cubic-bezier(.4,0,.2,1) }
-.settings__done:hover { background: #ff4800 }
+.settings__done { align-self: stretch }
 
 /* ============ Project popup ============ */
 .pop-scrim { transition: opacity .6s cubic-bezier(.16,1,.3,1) }
@@ -286,10 +316,9 @@ a { color: #ff6a00; text-decoration: none }
 .pop-logo { width: 82%; height: 70%; background-size: contain; background-position: center; background-repeat: no-repeat }
 .pop-word { display: flex; align-items: baseline; gap: 5px; font-family: Nunito, sans-serif; font-weight: 900; font-size: 34px; letter-spacing: -0.03em; color: #1a0d05 }
 .pop-word span { width: 11px; height: 11px; border-radius: 50%; background: var(--accent); display: inline-block }
-.pop-ctas { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 4px }
-.pop-cta { height: 50px; padding: 0 26px; border-radius: 100px; background: #ff6a00; color: #ffffff; display: flex; align-items: center; font-family: Nunito, sans-serif; font-weight: 800; font-size: 16px; text-decoration: none; transition: background .25s ease }
-.pop-cta:hover { background: #ff4800; color: #ffffff }
-.pop-link { height: 50px; padding: 0 22px; border-radius: 100px; display: flex; align-items: center; gap: 8px; font-family: Nunito, sans-serif; font-size: 16px; text-decoration: none }
+.pop-ctas { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 4px; margin: 8px 0 }
+.pop-cta { height: 48px; padding: 0 24px; font-size: 16px }
+.pop-link { height: 48px; padding: 0 22px; gap: 8px; font-size: 15px }
 .pop-back { align-self: center; height: 44px; padding: 0 16px; border: none; background: transparent; font-family: 'Nunito Sans', sans-serif; font-weight: 700; font-size: 14px; cursor: pointer }
 .pop-chips { display: flex; flex-wrap: wrap; gap: 8px }
 .pop-section { display: flex; flex-direction: column; gap: 10px }
@@ -310,9 +339,6 @@ a { color: #ff6a00; text-decoration: none }
 .pop-essenziale .pop-desc { color: #4a4a4a }
 .pop-essenziale .pop-chips { gap: 6px }
 .pop-essenziale .pop-chip { padding: 6px 10px; border-radius: 6px; background: #ffe2c7; color: #a33200; font-size: 13px; font-weight: 700 }
-.pop-essenziale .pop-cta { height: 48px; padding: 0 24px; transition: background .25s cubic-bezier(.4,0,.2,1) }
-.pop-essenziale .pop-link { height: 48px; border: 1.5px solid #ffd0a6; color: #d94a00; font-weight: 700; transition: border-color .25s cubic-bezier(.4,0,.2,1) }
-.pop-essenziale .pop-link:hover { border-color: #ff6a00; color: #d94a00 }
 .pop-essenziale .pop-back { color: #767676 }
 
 /* --- Arcade --- */
@@ -330,10 +356,6 @@ a { color: #ff6a00; text-decoration: none }
 .pop-arcade .pop-stack-label { color: #7a5a44; font-weight: 800 }
 .pop-arcade .pop-chip { padding: 5px 12px; border-radius: 100px; background: #ffffff; border: 2px solid #1a0d05; box-shadow: 0 3px 0 #1a0d05; color: #1a0d05; font-size: 13px; font-weight: 800 }
 .pop-arcade .pop-ctas { gap: 12px; padding-top: 6px }
-.pop-arcade .pop-cta { height: 52px; padding: 0 28px; border: 3px solid #1a0d05; box-shadow: 0 5px 0 #1a0d05; font-weight: 900; font-size: 17px; text-shadow: 0 2px 0 #1a0d05; transition: transform .15s ease, box-shadow .15s ease, background .25s ease }
-.pop-arcade .pop-link { height: 52px; background: #ffffff; border: 3px solid #1a0d05; box-shadow: 0 5px 0 #1a0d05; color: #1a0d05; font-weight: 800; transition: transform .15s ease, box-shadow .15s ease }
-.pop-arcade .pop-link:hover { color: #1a0d05 }
-.pop-arcade .pop-cta:active, .pop-arcade .pop-link:active { transform: translateY(4px); box-shadow: 0 1px 0 #1a0d05 }
 .pop-arcade .pop-back { color: #7a5a44; font-family: Nunito, sans-serif; font-weight: 800; font-size: 15px }
 
 /* --- Vetro --- */
@@ -351,10 +373,6 @@ a { color: #ff6a00; text-decoration: none }
 .pop-vetro .pop-rule { height: 1px; background: linear-gradient(90deg, rgba(255,154,0,.45), rgba(255,154,0,0)) }
 .pop-vetro .pop-stack-label { letter-spacing: .1em; color: #bfa18a; font-weight: 800 }
 .pop-vetro .pop-chip { padding: 6px 12px; border-radius: 100px; background: rgba(255,154,0,.12); border: 1px solid rgba(255,154,0,.4); color: #ffc48a; font-size: 13px; font-weight: 700 }
-.pop-vetro .pop-cta { box-shadow: inset 0 1px 0 rgba(255,210,160,.6), 0 8px 28px rgba(255,106,0,.45); transition: background .25s ease, box-shadow .25s ease }
-.pop-vetro .pop-cta:hover { box-shadow: inset 0 1px 0 rgba(255,210,160,.6), 0 10px 36px rgba(255,72,0,.6) }
-.pop-vetro .pop-link { border: 1.5px solid rgba(255,255,255,.28); color: #ffffff; font-weight: 700; transition: border-color .25s ease }
-.pop-vetro .pop-link:hover { border-color: #ffffff; color: #ffffff }
 .pop-vetro .pop-back { color: #bfa18a }
 
 /* --- Carta (trading card) --- */
@@ -377,9 +395,20 @@ a { color: #ff6a00; text-decoration: none }
 .pop-carta .pop-chips { justify-content: center; gap: 6px }
 .pop-carta .pop-chip { padding: 6px 12px; border-radius: 6px; background: var(--tint); color: #1a0d05; font-size: 13px; font-weight: 800 }
 .pop-carta .pop-ctas { justify-content: center }
-.pop-carta .pop-link { border: 2px solid #1a0d05; color: #1a0d05; font-weight: 800; transition: background .25s ease }
-.pop-carta .pop-link:hover { background: #ffe2c7; color: #1a0d05 }
 .pop-carta .pop-back { display: block; margin: 6px auto 0; height: 40px; color: #ffe2c7; font-family: Nunito, sans-serif; font-weight: 800 }
+
+/* Secondary on light popups (Essenziale, Arcade, Carta sheet) */
+.pop-essenziale .pop-link, .pop-arcade .pop-link, .pop-carta .pop-link {
+  --sh: inset 0 1px 0 #ffffff, 0 1px 3px rgba(26,13,5,.12);
+  border: 1px solid rgba(26,13,5,.18); background: linear-gradient(180deg, #ffffff, #fff1e3); color: #1a0d05
+}
+.pop-essenziale .pop-link:focus-visible, .pop-arcade .pop-link:focus-visible, .pop-carta .pop-link:focus-visible { outline-color: #c25400 }
+@media (hover: hover) {
+  .pop-essenziale .pop-link:hover, .pop-arcade .pop-link:hover, .pop-carta .pop-link:hover { background: linear-gradient(180deg, #ffffff, #ffe7d1); color: #1a0d05 }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pop-essenziale .pop-link:active, .pop-arcade .pop-link:active, .pop-carta .pop-link:active { --sh: inset 0 1px 0 #ffffff, 0 0 2px rgba(26,13,5,.12) }
+}
 
 /* ============ "Ruota il telefono" overlay ============ */
 .rotate-hint { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 24px; text-align: center; background: rgba(20,12,7,.94); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: fadeIn .4s ease both }
@@ -387,7 +416,6 @@ a { color: #ff6a00; text-decoration: none }
 .rotate-hint__icon--portrait { animation-name: rotPhoneBack }
 .rotate-hint__title { font-size: 34px; line-height: 1.1; color: #ff9a00; text-shadow: 0 4px 0 #1a0d05 }
 .rotate-hint__text { margin: 0; max-width: 300px; font-size: 16px; line-height: 1.5; color: #ffe2c7; text-wrap: pretty }
-.rotate-hint .btn-ghost { height: 48px }
 
 /* small utilities */
 .dim { color: rgba(255,255,255,.8) }
@@ -426,9 +454,9 @@ a { color: #ff6a00; text-decoration: none }
   .modal-stage { padding: 8px }
   .pop-card { max-height: calc(100dvh - 16px) }
   .pop-desc { font-size: 14px; line-height: 1.45 }
-  .pop-ctas { gap: 8px; padding-top: 0 }
-  .pop-cta { height: 40px; padding: 0 18px; font-size: 14px }
-  .pop-link { height: 40px; padding: 0 16px; font-size: 14px }
+  .pop-ctas { gap: 8px; padding-top: 0; margin: 4px 0 }
+  .pop-cta { height: 44px; padding: 0 18px; font-size: 14px }
+  .pop-link { height: 44px; padding: 0 16px; font-size: 14px }
   .pop-back { height: 36px; font-size: 13px }
 
   .pop-carta { max-width: 360px; padding: 6px 8px 6px; border-radius: 24px }

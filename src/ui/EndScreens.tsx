@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { CTA_HREF, PROJECTS } from '../data/projects'
 import { useUI } from '../store'
 import type { Actions } from './actions'
@@ -40,14 +41,18 @@ function GameOverTitle() {
   )
 }
 
-export function GameOver({ actions }: { actions: Actions }) {
-  const score = useUI(s => s.score)
+export function GameOver({ actions, leaving }: { actions: Actions; leaving?: boolean }) {
+  const liveScore = useUI(s => s.score)
   const best = useUI(s => s.best)
-  const newRecord = useUI(s => s.newRecord)
+  const liveRecord = useUI(s => s.newRecord)
   const found = useUI(s => s.found)
+  // "Rigioca" resets score and record flag at once: keep showing the final ones while the screen fades out
+  const kept = useRef({ score: liveScore, newRecord: liveRecord })
+  if (!leaving) kept.current = { score: liveScore, newRecord: liveRecord }
+  const { score, newRecord } = kept.current
   const missing = PROJECTS.length - found.length
   return (
-    <div data-ui="1" className="screen screen--over">
+    <div data-ui="1" className={'screen screen--over' + (leaving ? ' is-leaving' : '')}>
       <div className="screen__body">
         <div className="stack gap-4">
           <GameOverTitle />
@@ -69,10 +74,10 @@ export function GameOver({ actions }: { actions: Actions }) {
   )
 }
 
-export function Complete({ actions }: { actions: Actions }) {
+export function Complete({ actions, leaving }: { actions: Actions; leaving?: boolean }) {
   const found = useUI(s => s.found)
   return (
-    <div data-ui="1" className="screen screen--complete">
+    <div data-ui="1" className={'screen screen--complete' + (leaving ? ' is-leaving' : '')}>
       <div className="screen__body">
         <div className="stack gap-12">
           <div className="label label--lg complete__label">Progetti scoperti {found.length}/{PROJECTS.length}</div>

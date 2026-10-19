@@ -165,12 +165,17 @@ export class Engine {
   private sDirty = false
   private tDirty = false
   private frameNo = 0
+  /** Resizing clears every canvas: draw the next frame even if the scene is still. */
+  private redraw = true
+  /** Popup logos, decoded ahead of time and kept referenced so the browser keeps them decoded. */
+  private logos: HTMLImageElement[] = []
 
   private sfx = new Sfx(() => CONFIG.sound && !ui().muted, CONFIG.sliceSound)
 
   constructor(root: HTMLElement, mount: HTMLElement) {
     this.root = root
     this.mount = mount
+    ;(window as any).__engine = this // TEMP DEBUG
   }
 
   start() {
@@ -264,6 +269,7 @@ export class Engine {
     if (CONFIG.sound) this.sfx.prepare()
     await this.warmUp()
     if (this.dead) return
+    this.preloadLogos()
     this.root.addEventListener('pointerdown', this.onDown)
     this.root.addEventListener('pointermove', this.onMove)
     window.addEventListener('pointerup', this.onUp); window.addEventListener('pointercancel', this.onUp)
@@ -289,6 +295,16 @@ export class Engine {
     }
     add('bug', bugCanvas(), 1.0, 1.0)
     add('start', wordmark('gioca', '#ff9a00'), 1.7)
+  }
+
+  /**
+   * The popup shows its logo as a CSS background, which would otherwise be fetched and decoded
+   * the first time that popup opens, in the middle of the zoom. Not awaited: no popup opens this early.
+   */
+  private preloadLogos() {
+    for (const p of [...PROJECTS, BITROCK]) {
+      if (p.logo) loadImg(p.logo).then(i => { this.logos.push(i); return i.decode() }).catch(() => { /* the popup loads it itself */ })
+    }
   }
 
   private buildDust() {
@@ -319,7 +335,7 @@ export class Engine {
     this.scan!.width = W * dpr; this.scan!.height = H * dpr; this.sctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     this.items.forEach(it => { if (it.float) { this.fitIntro(it); it.g.scale.setScalar(it.r) } })
     this.post?.setSize(W, H, renderer.getPixelRatio())
-    this.sDirty = this.tDirty = true
+    this.sDirty = this.tDirty = this.redraw = true
   }
 
   /**
@@ -712,7 +728,8 @@ export class Engine {
     const s = this.sctx
     if (this.sDirty) { s.clearRect(0, 0, this.W, this.H); this.sDirty = false }
     if (this.stains.length) this.sDirty = true
-    for (const st of this.stains) { st.life -= raw / 3.5; if (st.life > 0) { s.globalAlpha = Math.min(1, st.life * 1.6); s.drawImage(st.c, st.x, st.y) } }
+    // stains fade on the game clock: in slow-mo behind a popup they hold still instead of repainting the canvas
+    for (const st of this.stains) { st.life -= dt / 3.5; if (st.life > 0) { s.globalAlpha = Math.min(1, st.life * 1.6); s.drawImage(st.c, st.x, st.y) } }
     s.globalAlpha = 1; this.stains = this.stains.filter(st => st.life > 0)
     const t = this.tctx, gy = this.H * 1.8, glow = this.quality.s.glow
     if (this.drops.length || this.misses.length || this.waves.length || this.confetti.length) this.tDirty = true
@@ -1281,9 +1298,23 @@ export class Engine {
     this.caPulse *= Math.exp(-raw * 4); this.bloomPulse *= Math.exp(-raw * 3)
     // Behind a still popup/settings panel/projects sheet/game over screen the scene barely moves, but every
     // WebGL frame forces the overlay's backdrop blur to be recomputed: draw at half rate there.
+    // Once nothing visibly moves any more, stop drawing altogether: unchanged canvases let the browser reuse the blur.
     const u = ui(), calm = (u.popupShown || u.settingsOpen || u.listShown || u.phase === 'over') && !this.tw.has('cam') && !this.tw.has('fx')
-    if (!calm || ++this.frameNo % 2 === 0) { if (this.post) this.renderPost(); else this.renderer!.render(this.scene, this.camera) }
+    if (calm && !this.redraw && this.isStill()) return
+    if (this.redraw || !calm || ++this.frameNo % 2 === 0) { if (this.post) this.renderPost(); else this.renderer!.render(this.scene, this.camera) }
+    this.redraw = false
     this.drawTrail()
     this.drawFx(dt, raw)
+  }
+
+  /**
+   * Nothing on screen would visibly change: game time (nearly) stopped or nothing left in flight,
+   * and every real-time effect (sparks, drops, waves, shake, parallax, pulses) has run out.
+   */
+  private isStill() {
+    if (this.drops.length || this.waves.length || this.misses.length || this.confetti.length || this.trail.length) return false
+    if (this.shakeAmt > 2e-3 || Math.abs(this.par.x) + Math.abs(this.par.y) > 5e-3 || this.bloomPulse > 0.01 || this.caPulse > 0.01) return false
+    if (this.parts.some(p => p.kind !== 'band')) return false
+    return this.timeScale <= 0.05 || (!this.items.length && !this.halves.length && !this.parts.length)
   }
 }
