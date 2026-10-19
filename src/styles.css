@@ -82,7 +82,17 @@ a { color: #ff6a00; text-decoration: none }
 .combo__text { font-size: 36px; line-height: 1; white-space: nowrap; color: #ff9a00; text-shadow: 0 4px 0 #1a0d05 }
 .combo__pts { font-size: 24px; line-height: 1.2; color: #ffffff }
 
-.loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; color: rgba(255,255,255,.6); letter-spacing: .08em; text-transform: uppercase; pointer-events: none }
+@keyframes ldSlash { 0% { stroke-dashoffset: 1 } 35% { stroke-dashoffset: 0 } 62%, 100% { stroke-dashoffset: -1 } }
+@keyframes ldPulse { 0%, 25%, 100% { opacity: .55 } 38% { opacity: 1 } }
+.loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; pointer-events: none }
+.loading__blade { overflow: visible }
+.loading__glow, .loading__edge { animation: ldSlash 1.6s cubic-bezier(.7,0,.2,1) infinite }
+.loading__glow { filter: drop-shadow(0 0 6px #ff6a00) drop-shadow(0 0 16px rgba(255,72,0,.8)) }
+.loading__text { font-family: Nunito, sans-serif; font-weight: 900; font-size: 28px; color: #ffffff; -webkit-text-stroke: 3px #1a0d05; paint-order: stroke fill; text-shadow: 0 4px 0 #1a0d05; animation: ldPulse 1.6s ease-in-out infinite }
+@media (prefers-reduced-motion: reduce) {
+  .loading__glow, .loading__edge { animation: none; stroke-dashoffset: 0 }
+  .loading__text { animation: none; opacity: 1 }
+}
 
 /* ============ Intro ============ */
 .intro { position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; text-align: center; padding: calc(env(safe-area-inset-top) + 12vh) 24px calc(env(safe-area-inset-bottom) + 8vh); animation: fadeUp .8s cubic-bezier(.16,1,.3,1) both }

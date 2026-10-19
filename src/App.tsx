@@ -60,7 +60,15 @@ export default function App() {
       <TopBar actions={actions} />
       <Toasts />
 
-      {phase === 'loading' && <div className="loading">Caricamento</div>}
+      {phase === 'loading' && (
+        <div className="loading">
+          <svg className="loading__blade" width="240" height="90" viewBox="0 0 240 90" fill="none" strokeLinecap="round" aria-hidden="true">
+            <path className="loading__glow" d="M14 76 L226 14" pathLength="1" strokeDasharray="1 1" stroke="#ff9a00" strokeWidth="7" />
+            <path className="loading__edge" d="M14 76 L226 14" pathLength="1" strokeDasharray="1 1" stroke="#fff4e0" strokeWidth="2" />
+          </svg>
+          <div className="loading__text">Caricamento</div>
+        </div>
+      )}
       {phase === 'intro' && <Intro />}
       {phase === 'play' && !complete && <Tray actions={actions} />}
       {phase === 'over' && <GameOver actions={actions} />}
