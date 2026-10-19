@@ -263,7 +263,32 @@ a { color: #ff6a00; text-decoration: none }
   .btn-ghost:active, .pop-link:active { --sh: inset 0 1px 0 rgba(255,255,255,.2) }
 }
 .complete__label { color: #ffe2c7 }
-.complete__title { font-size: clamp(34px,min(12vw,9vh),72px); line-height: 1; color: #ff9a00; -webkit-text-stroke-width: 5px; text-shadow: 0 7px 0 #1a0d05; text-wrap: balance }
+/* "Li hai trovati tutti": the game over title, cut by two blades in an irregular X crossing at (48.47%, 55.52%).
+   Blade A (0 6%)→(92% 100%) at .7s, steeper blade B (84% 0)→(20% 100%) at .92s, then the four pieces drift apart. */
+.done__title { font-size: clamp(24px,min(9vw,7.5vh),60px); line-height: 1.08; padding-top: .1em }
+.done__jolt { animation: xJolt .7s ease-out .72s both }
+.done__piece--top, .done__piece--right, .done__piece--bot { position: absolute; inset: 0 }
+.done__float, .done__cut { display: block }
+.done__float { animation: xFloat 3.4s ease-in-out 1.7s infinite }
+.done__cut { padding: .06em .1em .22em; transform-origin: 48.47% 55.52% }
+.done__float--left { --fx: -.025em; --fy: .01em }
+.done__float--top { --fx: -.01em; --fy: -.03em }
+.done__float--right { --fx: .025em; --fy: -.01em }
+.done__float--bot { --fx: .01em; --fy: .03em }
+.done__cut--left { clip-path: polygon(0 calc(6% - 1px),calc(48.47% + 1px) 55.52%,calc(20% + 1px) 100%,0 100%); animation: xLeft .75s cubic-bezier(.16,1,.3,1) .94s both }
+.done__cut--top { clip-path: polygon(0 0,84% 0,48.47% 55.52%,0 6%); animation: xTop .75s cubic-bezier(.16,1,.3,1) .94s both }
+.done__cut--right { clip-path: polygon(calc(84% - 1px) 0,100% 0,100% 100%,calc(92% - 1px) 100%,calc(48.47% - 1px) 55.52%); animation: xRight .75s cubic-bezier(.16,1,.3,1) .94s both }
+.done__cut--bot { clip-path: polygon(48.47% 55.52%,92% 100%,20% 100%); animation: xBot .75s cubic-bezier(.16,1,.3,1) .94s both }
+.done__blade line:nth-child(2) { animation-delay: .92s, 1.08s }
+.done__title .over__flash, .done__title .over__sparks { left: 48.47%; top: 55.52% }
+.done__title .over__flash { width: 2.4em; height: 1.5em; transform: translate(-50%,-50%); animation-delay: .94s }
+.done__title .over__sparks i { animation-delay: .95s }
+@keyframes xJolt { 0%, 100% { transform: none } 10% { transform: translate(.04em,-.03em) rotate(.6deg) } 26% { transform: translate(-.015em,.01em) rotate(-.2deg) } 38% { transform: translate(-.045em,-.03em) rotate(-.8deg) } 58% { transform: translate(.03em,.02em) rotate(.4deg) } 78% { transform: translate(-.01em,0) } }
+@keyframes xLeft { 0% { transform: none } 100% { transform: translate(-.12em,.04em) rotate(-1.2deg) } }
+@keyframes xTop { 0% { transform: none } 100% { transform: translate(-.03em,-.12em) rotate(-.8deg) } }
+@keyframes xRight { 0% { transform: none } 100% { transform: translate(.12em,-.03em) rotate(1.2deg) } }
+@keyframes xBot { 0% { transform: none } 100% { transform: translate(.02em,.1em) rotate(.6deg) } }
+@keyframes xFloat { 0%, 100% { transform: none } 50% { transform: translate(var(--fx),var(--fy)) } }
 .complete__bonus { font-size: 24px; color: #ffffff }
 .done-pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px }
 .done-pill { height: 44px; padding: 0 14px 0 18px; border-radius: 100px; border: none; color: #1a0d05; display: flex; align-items: center; gap: 4px; font-family: Nunito, sans-serif; font-weight: 800; font-size: 15px; cursor: pointer; transition: transform .25s cubic-bezier(.4,0,.2,1), box-shadow .25s cubic-bezier(.4,0,.2,1) }

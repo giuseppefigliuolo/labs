@@ -29,8 +29,44 @@ function GameOverTitle() {
           <div className="over__jolt">
             <GameOverHalf half="bot" />
             <GameOverHalf half="top" />
-            <svg className="over__blade" viewBox="0 0 100 100" preserveAspectRatio="none">
-              <line x1="-8" y1="65.92" x2="108" y2="38.08" pathLength={1} stroke="#ffffff" strokeLinecap="round" strokeDasharray="1 1" strokeDashoffset={1} vectorEffect="non-scaling-stroke" />
+            {/* % coordinates, no viewBox: the blade isn't stretched, so pathLength matches the drawn length */}
+            <svg className="over__blade">
+              <line x1="-8%" y1="65.92%" x2="108%" y2="38.08%" pathLength={1} stroke="#ffffff" strokeLinecap="round" strokeDasharray="1 1" strokeDashoffset={1} />
+            </svg>
+            <span className="over__flash" />
+            <span className="over__sparks"><i /><i /><i /><i /><i /><i /></span>
+          </div>
+        </div>
+      </div>
+    </h2>
+  )
+}
+
+const X_PIECES = ['left', 'top', 'right', 'bot'] as const
+
+// Same embossed title, this time hit by two blades crossing in an irregular X: four pieces.
+function CompleteTitle() {
+  const text = <>Li hai trovati<br />tutti</>
+  return (
+    <h2 className="over__title done__title" aria-label="Li hai trovati tutti">
+      <div aria-hidden="true" data-go-idle="1" className="over__sway">
+        <div className="over__drop">
+          <div className="over__jolt done__jolt">
+            {X_PIECES.map(p => (
+              <div key={p} className={'done__piece--' + p}>
+                <span data-go-idle="1" className={'done__float done__float--' + p}>
+                  <span className={'done__cut done__cut--' + p}>
+                    <span className="over__emboss">
+                      <span className="over__body">{text}</span>
+                      <span className="over__face">{text}</span>
+                    </span>
+                  </span>
+                </span>
+              </div>
+            ))}
+            <svg className="over__blade done__blade">
+              <line x1="-7.36%" y1="-1.52%" x2="99.36%" y2="107.52%" pathLength={1} stroke="#ffffff" strokeLinecap="round" strokeDasharray="1 1" strokeDashoffset={1} />
+              <line x1="89.12%" y1="-8%" x2="14.88%" y2="108%" pathLength={1} stroke="#ffffff" strokeLinecap="round" strokeDasharray="1 1" strokeDashoffset={1} />
             </svg>
             <span className="over__flash" />
             <span className="over__sparks"><i /><i /><i /><i /><i /><i /></span>
@@ -81,7 +117,7 @@ export function Complete({ actions, leaving }: { actions: Actions; leaving?: boo
       <div className="screen__body">
         <div className="stack gap-12">
           <div className="label label--lg complete__label">Progetti scoperti {found.length}/{PROJECTS.length}</div>
-          <div className="complete__title outlined">Li hai trovati tutti</div>
+          <CompleteTitle />
           <div className="complete__bonus outlined">Bonus +10</div>
         </div>
         <div className="done-pills">
