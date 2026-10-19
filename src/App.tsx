@@ -5,6 +5,7 @@ import { cfg, useUI } from './store'
 import type { Actions } from './ui/actions'
 import { Background } from './ui/Background'
 import { Complete, GameOver } from './ui/EndScreens'
+import { Flash } from './ui/Flash'
 import { Frenzy } from './ui/Frenzy'
 import { Intro } from './ui/Intro'
 import { RotateHint } from './ui/RotateHint'
@@ -47,9 +48,6 @@ export default function App() {
   const sfondo = useUI(s => cfg('sfondo', s.settings))
   const popup = useUI(s => s.popup)
   const rotateHint = useUI(s => s.rotateHint)
-  const flash = useUI(s => s.flash)
-  const flashColor = useUI(s => s.flashColor)
-  const flashT = useUI(s => s.flashT)
   // kept mounted a little after closing, to fade out instead of vanishing
   const introOn = usePresence(phase === 'intro')
   const overOn = usePresence(phase === 'over')
@@ -60,7 +58,7 @@ export default function App() {
     <div ref={rootRef} className="labs" data-screen-label="Labs" style={{ '--hf': TITLE_FONTS[CONFIG.titleFont].family } as CSSProperties}>
       <Background kind={sfondo} />
       <div ref={mountRef} className="fill" />
-      <div className="flash" style={{ background: flashColor, opacity: flash, transition: flashT }} />
+      <Flash />
 
       <Frenzy />
       <TopBar actions={actions} />

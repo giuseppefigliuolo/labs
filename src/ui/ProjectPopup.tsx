@@ -1,12 +1,15 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { CTA_HREF, PROJECTS, type Project } from '../data/projects'
 import { CONFIG } from '../config'
 import { useUI, type UIState } from '../store'
 import type { Actions } from './actions'
 import { ArrowIcon, CloseIcon } from './icons'
 
+type PopState = Pick<UIState, 'popup' | 'popupShown' | 'anim' | 'side' | 'ox' | 'oy' | 'origin' | 'ptint' | 'backLabel'>
+
 /** Entry/exit transform for the card, matching CONFIG.zoomStyle. */
-function popVals(s: UIState) {
+function popVals(s: PopState) {
   const A = s.anim, sh = s.popupShown, side = s.side, ox = s.ox, oy = s.oy
   let tf: string, flt = 'blur(0px)', org = s.origin, tr: string
   if (A === 'swing') { tf = sh ? 'perspective(1400px) scale(1) rotateY(0deg) rotateZ(0deg)' : `perspective(1400px) scale(0.12) rotateY(${-side * 55}deg) rotateZ(${side * 10}deg)`; tr = 'transform .95s cubic-bezier(.16,1,.3,1), opacity .5s cubic-bezier(.16,1,.3,1)' }
@@ -149,7 +152,10 @@ function Carta({ p, close, backLabel }: CardProps) {
 const CARDS = { attuale: Essenziale, arcade: Arcade, vetro: Vetro, carta: Carta }
 
 export function ProjectPopup({ actions }: { actions: Actions }) {
-  const s = useUI()
+  // only the popup's fields: the store also changes on every hit (score, toasts…) behind it
+  const s = useUI(useShallow((u): PopState => ({
+    popup: u.popup, popupShown: u.popupShown, anim: u.anim, side: u.side, ox: u.ox, oy: u.oy, origin: u.origin, ptint: u.ptint, backLabel: u.backLabel
+  })))
   const p = s.popup
   if (!p) return null
   const v = popVals(s)

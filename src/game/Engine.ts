@@ -105,6 +105,13 @@ export class Engine {
   private sctx!: CanvasRenderingContext2D
   private tcan?: HTMLCanvasElement
   private tctx!: CanvasRenderingContext2D
+  /** Pixel ratio the 2D canvases were last sized with (their base transform). */
+  private fxDpr = 1
+  /** Canvases of faded stains, reused by the next slices. */
+  private stainPool: HTMLCanvasElement[] = []
+  /** Sparks and blade marks of finished effects, reused with their materials: the frenzy makes dozens a second. */
+  private sparkPool: THREE.Sprite[] = []
+  private markPool: THREE.Mesh[] = []
 
   // viewport
   private rootX = 0
@@ -195,6 +202,7 @@ export class Engine {
     this.post?.dispose()
     this.scene?.environment?.dispose(); this.bands.forEach(b => b.geo.dispose())
     this.mats.forEach(m => m.dispose()); this.keep.forEach(m => m.dispose())
+    this.sparkPool.forEach(s => s.material.dispose()); this.markPool.forEach(m => (m.material as THREE.Material).dispose())
     if (this.renderer) { this.renderer.dispose(); this.renderer.domElement.remove() }
     this.scan?.remove()
     this.tcan?.remove()
@@ -330,6 +338,7 @@ export class Engine {
     this.g = this.viewH * 1.0
     const rr = this.root.getBoundingClientRect(); this.rootX = rr.left; this.rootY = rr.top
     const dpr = this.quality.s.dpr
+    this.fxDpr = dpr
     this.tcan!.width = W * dpr; this.tcan!.height = H * dpr; this.tctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     this.scan!.width = W * dpr; this.scan!.height = H * dpr; this.sctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     this.items.forEach(it => { if (it.float) { this.fitIntro(it); it.g.scale.setScalar(it.r) } })
@@ -382,7 +391,9 @@ export class Engine {
       h.g.traverse(o => { const m = (o as THREE.Mesh).material as THREE.Material | undefined; if (m && !m.userData.shared) this.keep.push(m) })
       this.scene.remove(h.g)
     }
-    this.halves = []; this.items = []; this.stains = []; this.drops = []
+    this.halves = []; this.items = []; this.drops = []
+    for (const st of this.stains) this.stainPool.push(st.c)
+    this.stains = []
     this.removeItem(fruit); this.scene.remove(...warm)
     if (this.dead) return
     // first post-processing frame allocates the render targets and compiles the passes
@@ -721,14 +732,18 @@ export class Engine {
   private splash(it: Item, dir: Dir) {
     const c = this.toScreen(it.pos), sr = it.r * this.H / this.viewH
     const col = it.danger ? '#120806' : it.tint
-    const S = Math.ceil(sr * 5), oc = document.createElement('canvas'); oc.width = oc.height = S; const x = oc.getContext('2d')!
+    // canvas of a faded stain when there is one: creating a canvas and its context on the slice frame is not free on mobile
+    const S = Math.ceil(sr * 5), oc = this.stainPool.pop() ?? document.createElement('canvas')
+    if (oc.width !== S || oc.height !== S) { oc.width = oc.height = S }
+    const x = oc.getContext('2d')!
+    x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, S, S)
     x.fillStyle = col; x.translate(S / 2, S / 2); x.globalAlpha = 0.5
     for (let k = 0; k < 6; k++) { x.beginPath(); x.arc((Math.random() - .5) * sr * .5, (Math.random() - .5) * sr * .5, sr * (0.3 + Math.random() * 0.3), 0, Math.PI * 2); x.fill() }
     const ang = Math.atan2(-dir.y, dir.x)
     for (const s of [1, -1]) { x.beginPath(); x.ellipse(Math.cos(ang) * sr * 0.9 * s, Math.sin(ang) * sr * 0.9 * s, sr * 0.8, sr * 0.11, ang, 0, Math.PI * 2); x.fill() }
     for (let k = 0; k < 16; k++) { const a = Math.random() * Math.PI * 2, d = sr * (0.8 + Math.random() * 1.3); x.beginPath(); x.arc(Math.cos(a) * d, Math.sin(a) * d, sr * (0.03 + Math.random() * 0.09), 0, Math.PI * 2); x.fill() }
     this.stains.push({ c: oc, x: c.x - S / 2, y: c.y - S / 2, life: 1 })
-    if (this.stains.length > 14) this.stains.shift()
+    if (this.stains.length > 14) this.stainPool.push(this.stains.shift()!.c)
     const n = it.danger ? 30 : 24
     for (let k = 0; k < n; k++) { const a = Math.random() * Math.PI * 2, sp = sr * (2 + Math.random() * 5); this.drops.push({ x: c.x, y: c.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - sr * 3, r: 2 + Math.random() * sr * 0.08, col: it.danger ? '#ffb000' : col, life: 1 }) }
   }
@@ -741,7 +756,10 @@ export class Engine {
     if (this.stains.length) this.sDirty = true
     // stains fade on the game clock: in slow-mo behind a popup they hold still instead of repainting the canvas
     for (const st of this.stains) { st.life -= dt / 3.5; if (st.life > 0) { s.globalAlpha = Math.min(1, st.life * 1.6); s.drawImage(st.c, st.x, st.y) } }
-    s.globalAlpha = 1; this.stains = this.stains.filter(st => st.life > 0)
+    s.globalAlpha = 1
+    const live = this.stains.filter(st => st.life > 0)
+    if (live.length !== this.stains.length) for (const st of this.stains) if (st.life <= 0) this.stainPool.push(st.c)
+    this.stains = live
     const t = this.tctx, gy = this.H * 1.8, glow = this.quality.s.glow
     if (this.drops.length || this.misses.length || this.waves.length || this.confetti.length) this.tDirty = true
     t.shadowBlur = 0
@@ -766,10 +784,14 @@ export class Engine {
     }
     t.shadowBlur = 0; this.waves = this.waves.filter(w => now - w.t < 1000)
     t.globalAlpha = 1
+    // translate · rotate · flip as one setTransform (on top of the dpr scale) instead of save/restore per piece
+    const k = this.fxDpr
     for (const c of this.confetti) {
       c.vy += 30 * raw; c.x += (c.vx + Math.sin(now / 300 + c.ph) * 40) * raw; c.y += c.vy * raw; c.rot += c.vr * raw
-      t.save(); t.translate(c.x, c.y); t.rotate(c.rot); t.scale(1, Math.cos(now / 200 + c.ph)); t.fillStyle = c.col; t.fillRect(-c.w / 2, -c.h / 2, c.w, c.h); t.restore()
+      const co = Math.cos(c.rot) * k, si = Math.sin(c.rot) * k, fy = Math.cos(now / 200 + c.ph)
+      t.setTransform(co, si, -si * fy, co * fy, c.x * k, c.y * k); t.fillStyle = c.col; t.fillRect(-c.w / 2, -c.h / 2, c.w, c.h)
     }
+    if (this.confetti.length) t.setTransform(k, 0, 0, k, 0, 0)
     this.confetti = this.confetti.filter(c => c.y < this.H + 30)
     t.globalAlpha = 1
   }
@@ -999,11 +1021,30 @@ export class Engine {
     const sh = this.strokeHits || 0, lv = sh >= 5 ? 2 : sh >= 3 ? 1 : 0; p.lv = lv; if (a.lv === undefined) a.lv = lv
     if (this.opt().trail) {
       if (!this.trail.length || p.t - this.trail[this.trail.length - 1].t > 120) this.trail.push(a)
+      this.addCoalesced(e, p, len)
       this.trail.push(p)
       for (let k = 0; k < lv * 2; k++) this.drops.push({ x: p.x, y: p.y, vx: (Math.random() - .5) * 260, vy: (Math.random() - .5) * 260 - 80, r: 1.5 + Math.random() * 2, col: lv === 2 ? '#fff4e6' : '#ffc04d', life: 0.7 })
     }
     if (speed > 1.1 && p.t - this.lastSwoosh > 200) { this.lastSwoosh = p.t; this.sfx.play('swoosh', { speed }) }
     this.trySlice(a, p)
+  }
+
+  /**
+   * Pointer moves arrive about once per frame, so a fast swipe would draw the blade as a few long straight
+   * segments. The browser's in-between samples round it off; they only shape the trail (slicing still uses
+   * the whole move), and at most ~6 are kept per move since every segment is a stroke with a glow.
+   */
+  private addCoalesced(e: PointerEvent, p: Pt, len: number) {
+    const cs = e.getCoalescedEvents?.()
+    if (!cs || cs.length < 2) return
+    const step = Math.max(10, len / 6)
+    let last = this.trail[this.trail.length - 1]
+    for (let i = 0; i < cs.length - 1; i++) {
+      const x = cs[i].clientX - this.rootX, y = cs[i].clientY - this.rootY
+      if (Math.hypot(x - last.x, y - last.y) < step || Math.hypot(p.x - x, p.y - y) < step) continue
+      last = { x, y, t: p.t, lv: p.lv }
+      this.trail.push(last)
+    }
   }
 
   private toScreen(v: THREE.Vector3) { const p = this.v.copy(v).project(this.camera); return { x: (p.x + 1) / 2 * this.W, y: (1 - p.y) / 2 * this.H } }
@@ -1212,7 +1253,7 @@ export class Engine {
   private clearFrenzy() {
     if (this.frenzy) this.removeObj(this.frenzy.it.g)
     this.frenzy = null
-    for (const p of this.parts) this.removeObj(p.o)
+    for (const p of this.parts) this.dropPart(p)
     this.parts = []
     set({ frenzy: false })
   }
@@ -1223,13 +1264,15 @@ export class Engine {
   }
 
   private spark(p: THREE.Vector3, vel: THREE.Vector3, color: string, size: number, life: number, g: number) {
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.radialTex, color: new THREE.Color(color), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }))
+    const sp = this.sparkPool.pop() ?? new THREE.Sprite(new THREE.SpriteMaterial({ map: this.radialTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }))
+    sp.material.color.set(color); sp.material.opacity = 1
     sp.position.copy(p); sp.position.z += 0.4; sp.scale.setScalar(size); sp.renderOrder = 12
     this.addPart(sp, 'spark', vel, life, g, 1.5)
   }
 
   private slashMark(p: THREE.Vector3, d: THREE.Vector3, s: number) {
-    const m = new THREE.Mesh(this.planeGeo, new THREE.MeshBasicMaterial({ map: this.radialTex, color: new THREE.Color('#fff3e0'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }))
+    const m = this.markPool.pop() ?? new THREE.Mesh(this.planeGeo, new THREE.MeshBasicMaterial({ map: this.radialTex, color: new THREE.Color('#fff3e0'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }))
+    ;(m.material as THREE.MeshBasicMaterial).opacity = 1
     m.position.set(p.x, p.y, 0.8); m.rotation.z = Math.atan2(d.y, d.x); m.scale.set(3.7 * s, 0.17 * s, 1); m.renderOrder = 12
     this.addPart(m, 'mark', new THREE.Vector3(), 0.22)
   }
@@ -1253,9 +1296,16 @@ export class Engine {
           dead = o.position.y < bottom - p.s0.x * 2 || Math.abs(o.position.x) > hw + p.s0.x * 2
         }
       }
-      if (dead) this.removeObj(o)
+      if (dead) this.dropPart(p)
       return !dead
     })
+  }
+
+  /** Takes a finished effect out of the scene: sparks and marks go back to their pool, the rest is disposed. */
+  private dropPart(p: Part) {
+    if (p.kind === 'spark') { this.scene.remove(p.o); this.sparkPool.push(p.o as THREE.Sprite) }
+    else if (p.kind === 'mark') { this.scene.remove(p.o); this.markPool.push(p.o as THREE.Mesh) }
+    else this.removeObj(p.o)
   }
 
   // ---------- loop ----------
