@@ -1096,7 +1096,7 @@ export class Engine {
       if (first) {
         this.found = [...this.found, id]; upd.found = this.found; upd.fresh = id; this.clearTimeout(this.freshTO)
         if (this.found.length === PROJECTS.length && !this.allDone) {
-          this.allDone = true; this.allPending = true
+          this.allDone = true; this.allPending = o.popups // "Solo gioco": no "complete" screen
           if (!ui().unlockedAll) { saveUnlocked(); upd.unlockedAll = true }
         }
       }
@@ -1108,8 +1108,7 @@ export class Engine {
     else {
       // no popup for this one (another is on its way, or "Solo gioco" is on): its pill starts the countdown now
       if (upd.fresh) this.freshOff()
-      if (this.allPending && !o.popups) this.finishAll()
-      else if (perfect) { this.tweenTime(0.2, 0.06, ease.outCubic); this.after(0.28, () => { if (this.mode === 'play') this.tweenTime(1, 0.4, ease.inCubic) }) }
+      if (perfect) { this.tweenTime(0.2, 0.06, ease.outCubic); this.after(0.28, () => { if (this.mode === 'play') this.tweenTime(1, 0.4, ease.inCubic) }) }
     }
   }
 
