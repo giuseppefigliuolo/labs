@@ -153,10 +153,54 @@ a { color: #ff6a00; text-decoration: none }
 .screen--complete .screen__body { max-width: 420px }
 .stack { display: flex; flex-direction: column; align-items: center }
 .screen__projects { width: 100% }
+/* "Game over": embossed title cut in two by a blade, like the bubbles in game. Sizes in em. */
+.over__title { margin: 0; font-family: var(--hf); font-weight: 900; font-size: clamp(40px,min(14vw,11vh),84px); line-height: 1; white-space: nowrap; perspective: 900px; padding-top: .14em }
+.over__sway { transform-style: preserve-3d; animation: labsSway 7s ease-in-out infinite }
+.over__drop { animation: goDrop .6s cubic-bezier(.16,1,.3,1) .05s both }
+.over__jolt { position: relative; animation: goJolt .4s ease-out .72s both }
+.over__half--top { position: absolute; inset: 0 }
+.over__float, .over__cut { display: block }
+.over__float--bot { animation: goBotFloat 3.4s ease-in-out 1.5s infinite }
+.over__float--top { animation: goTopFloat 3.4s ease-in-out 1.5s infinite }
+.over__cut { padding: .06em .1em .22em }
+.over__cut--bot { clip-path: polygon(0 calc(64% - 1px),100% calc(40% - 1px),100% 100%,0 100%); animation: goBotSplit .75s cubic-bezier(.16,1,.3,1) .74s both }
+.over__cut--top { clip-path: polygon(0 0,100% 0,100% 40%,0 64%); animation: goTopSplit .75s cubic-bezier(.16,1,.3,1) .74s both }
+.over__emboss { position: relative; display: block }
+.over__body { color: #ff9a00; -webkit-text-stroke: .06em #1a0d05; paint-order: stroke fill; text-shadow: 0 .012em 0 #e07400, 0 .024em 0 #cf6600, 0 .036em 0 #bd5900, 0 .048em 0 #a94c00, 0 .06em 0 #933f00, 0 .072em 0 #7c3300, 0 .084em 0 #642800, 0 .1em 0 #1a0d05, 0 .13em 0 #1a0d05 }
+.over__face { position: absolute; inset: 0; color: transparent; background: linear-gradient(180deg,#ffb52e 0%,#ff9a00 55%,#ff8a00 100%); -webkit-background-clip: text; background-clip: text }
+.over__blade { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none }
+.over__blade line { stroke-width: 5px; filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 12px #ff9a00); animation: goSlash .16s cubic-bezier(.6,0,.4,1) .7s forwards, goBlade .5s ease-out .86s forwards }
+.over__flash { position: absolute; left: 50%; top: 52%; width: 3.2em; height: 1.1em; transform: translate(-50%,-50%) rotate(-8deg); border-radius: 50%; background: radial-gradient(closest-side, rgba(255,250,235,.95), rgba(255,154,0,.4) 55%, rgba(255,106,0,0)); opacity: 0; pointer-events: none; animation: goFlash .55s ease-out .74s both }
+.over__sparks { position: absolute; left: 50%; top: 52%; width: 0; height: 0; pointer-events: none }
+.over__sparks i { position: absolute; border-radius: 50%; opacity: 0 }
+.over__sparks i:nth-child(odd) { width: .08em; height: .08em; left: -.04em; top: -.04em; background: #fff4e0; box-shadow: 0 0 .12em #ff9a00 }
+.over__sparks i:nth-child(even) { width: .06em; height: .06em; left: -.03em; top: -.03em; background: #ffb52e; box-shadow: 0 0 .12em #ff6a00 }
+.over__sparks i:nth-child(1) { animation: spk1 .65s cubic-bezier(.16,1,.3,1) .74s forwards }
+.over__sparks i:nth-child(2) { animation: spk2 .7s cubic-bezier(.16,1,.3,1) .75s forwards }
+.over__sparks i:nth-child(3) { animation: spk3 .6s cubic-bezier(.16,1,.3,1) .74s forwards }
+.over__sparks i:nth-child(4) { animation: spk4 .7s cubic-bezier(.16,1,.3,1) .76s forwards }
+.over__sparks i:nth-child(5) { animation: spk5 .65s cubic-bezier(.16,1,.3,1) .75s forwards }
+.over__sparks i:nth-child(6) { animation: spk6 .7s cubic-bezier(.16,1,.3,1) .77s forwards }
+@keyframes goDrop { 0% { opacity: 0; transform: translateY(-.7em) scale(1.3) rotateX(50deg) } 65% { opacity: 1; transform: translateY(.05em) scale(.97) rotateX(-6deg) } 100% { opacity: 1; transform: none } }
+@keyframes goJolt { 0%, 100% { transform: none } 20% { transform: translate(.04em,-.03em) rotate(.6deg) } 45% { transform: translate(-.03em,.02em) rotate(-.4deg) } 70% { transform: translate(.015em,-.01em) } }
+@keyframes goTopSplit { 0% { transform: none } 100% { transform: translate(-.03em,-.09em) rotate(-1deg) } }
+@keyframes goBotSplit { 0% { transform: none } 100% { transform: translate(.03em,.09em) rotate(-1deg) } }
+@keyframes goTopFloat { 0%, 100% { transform: none } 50% { transform: translateY(-.03em) } }
+@keyframes goBotFloat { 0%, 100% { transform: none } 50% { transform: translateY(.03em) } }
+@keyframes goSlash { 0% { stroke-dashoffset: 1; opacity: 1 } 100% { stroke-dashoffset: 0; opacity: 1 } }
+@keyframes goBlade { 0%, 60% { opacity: 1; stroke-width: 5px } 100% { opacity: 0; stroke-width: 1px } }
+@keyframes goFlash { 0% { opacity: 0 } 15% { opacity: .9 } 100% { opacity: 0 } }
+@keyframes goPop { 0% { opacity: 0; transform: scale(.4) translateY(.2em) } 60% { opacity: 1; transform: scale(1.12) } 100% { opacity: 1; transform: none } }
+@keyframes spk1 { 0% { opacity: 1; transform: none } 100% { opacity: 0; transform: translate(-1.1em,-.7em) scale(.3) } }
+@keyframes spk2 { 0% { opacity: 1; transform: none } 100% { opacity: 0; transform: translate(-.6em,-1em) scale(.3) } }
+@keyframes spk3 { 0% { opacity: 1; transform: none } 100% { opacity: 0; transform: translate(.2em,-1.1em) scale(.3) } }
+@keyframes spk4 { 0% { opacity: 1; transform: none } 100% { opacity: 0; transform: translate(1.2em,.5em) scale(.3) } }
+@keyframes spk5 { 0% { opacity: 1; transform: none } 100% { opacity: 0; transform: translate(.7em,1em) scale(.3) } }
+@keyframes spk6 { 0% { opacity: 1; transform: none } 100% { opacity: 0; transform: translate(-.3em,1.05em) scale(.3) } }
+@media (prefers-reduced-motion: reduce) { [data-go-idle] { animation: none !important } }
 .over__missing { margin: 0; font-size: 14px; color: #ffe2c7 }
-.over__title { font-size: clamp(40px,min(14vw,11vh),84px); line-height: 1; color: #ff9a00; -webkit-text-stroke-width: 5px; text-shadow: 0 7px 0 #1a0d05 }
-.over__score { font-size: clamp(56px,15vh,96px); line-height: 1.1; color: #ffffff; -webkit-text-stroke-width: 4px; text-shadow: 0 6px 0 #1a0d05 }
-.over__record { font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.75) }
+.over__score { font-size: clamp(56px,15vh,96px); line-height: 1.1; color: #ffffff; -webkit-text-stroke-width: 4px; text-shadow: 0 6px 0 #1a0d05; animation: goPop .6s cubic-bezier(.34,1.56,.64,1) 1.05s both }
+.over__record { font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.75); animation: fadeIn .5s ease 1.35s both }
 .over__record.is-new { color: #ff9a00 }
 .btn-primary { height: 52px; padding: 0 36px; border-radius: 100px; border: none; background: #ff6a00; color: #ffffff; display: flex; align-items: center; font-family: Nunito, sans-serif; font-weight: 800; font-size: 17px; cursor: pointer; text-decoration: none; transition: background .25s cubic-bezier(.4,0,.2,1) }
 .btn-primary:hover { background: #ff4800; color: #ffffff }

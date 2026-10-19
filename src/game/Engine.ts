@@ -754,8 +754,19 @@ export class Engine {
     const best = ui().best, newRecord = this.score > best
     if (newRecord) saveBest(this.score)
     this.sfx.tone(330, 0.7, { to: 110, type: 'triangle', vol: 0.14, delay: 0.15 })
-    this.after(0.9, () => set({ phase: 'over', newRecord, best: Math.max(best, this.score) }))
+    this.after(0.9, () => {
+      set({ phase: 'over', newRecord, best: Math.max(best, this.score) })
+      // Sync with the blade of the "Game over" title (0.7s after the screen appears).
+      this.clearTimeout(this.goSliceT)
+      this.goSliceT = this.timeout(() => {
+        if (this.mode !== 'over') return
+        this.sfx.play('swoosh', { speed: 3.5 })
+        this.sfx.play('pop', { f: 392, n: 1 })
+        this.buzz(18)
+      }, 700)
+    })
   }
+  private goSliceT?: number
 
   private doFlash(color: string) {
     set({ flash: 1, flashColor: color, flashT: 'none' })
