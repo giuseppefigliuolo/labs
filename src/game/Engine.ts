@@ -166,6 +166,9 @@ export class Engine {
 
   // input
   private ptrDown = false
+  // Only one blade: the first finger down. Others are ignored until it lifts, otherwise lastPt jumps between
+  // fingers and every move draws a segment across the screen (and across the frenzy logo).
+  private ptrId: number | null = null
   private lastPt: Pt | null = null
   private strokeHits = 0
   private lastSwoosh = 0
@@ -967,7 +970,10 @@ export class Engine {
     const o = this.opt(), prog = Math.min(this.score / 30, 1)
     this.spawnCount++
     if (o.bugs && this.spawnCount > 3 && Math.random() < (0.1 + 0.18 * prog) * o.bugMul) return { type: 'bug' }
-    if ((!this.bitrockSeen && this.spawnCount === 7) || Math.random() < 0.05) return { type: 'bitrock', data: BITROCK }
+    // one Bitrock logo at a time: none while another is flying, queued or in its frenzy.
+    // The 7th launch brings the first one; after that it shows up on 2.5% of launches.
+    const logoOut = !!this.frenzy || this.items.some(i => i.fruit && i.alive) || this.queue.some(q => q.type === 'bitrock')
+    if (!logoOut && ((!this.bitrockSeen && this.spawnCount === 7) || Math.random() < 0.025)) return { type: 'bitrock', data: BITROCK }
     const hidden = PROJECTS.filter(p => !this.found.includes(p.id))
     const pool = hidden.length && Math.random() < 0.65 ? hidden : PROJECTS
     return { type: 'project', data: pool[Math.floor(Math.random() * pool.length)] }
@@ -992,23 +998,30 @@ export class Engine {
   private onMove = (e: PointerEvent) => this.pMove(e)
   private onUp = (e: PointerEvent) => this.pUp(e)
   // a pointerup that happens outside the window is never delivered: forget the stroke when focus is lost
-  private onBlur = () => { this.ptrDown = false; this.lastPt = null; this.strokeHits = 0; if (this.frenzy) this.frenzy.inside = false }
+  private onBlur = () => { this.ptrDown = false; this.ptrId = null; this.lastPt = null; this.strokeHits = 0; if (this.frenzy) this.frenzy.inside = false }
 
   private isUI(e: PointerEvent) { return !!(e.target as Element | null)?.closest?.('[data-ui]') }
   // root offset is cached in resize(): reading the rect here would force a layout on every pointer event
   private localPt(e: PointerEvent): Pt { return { x: e.clientX - this.rootX, y: e.clientY - this.rootY, t: performance.now() } }
 
+  private otherPtr(e: PointerEvent) { return this.ptrId !== null && e.pointerId !== this.ptrId }
+
   private pDown(e: PointerEvent) {
-    if (this.isUI(e)) return
+    if (this.isUI(e) || this.otherPtr(e)) return
     this.sfx.ctx()
+    this.ptrId = e.pointerId
     this.ptrDown = true; this.lastPt = this.localPt(e); this.strokeHits = 0
     // a finger that lands on the logo doesn't score: only entering the circle does
     if (this.frenzy) { const f = this.frenzy; f.inside = this.inFrenzyCircle(this.lastPt); f.from = { x: this.lastPt.x, y: this.lastPt.y }; f.travel = 0; f.dir = null }
   }
 
-  private pUp(e: PointerEvent) { this.ptrDown = false; if (e.pointerType !== 'mouse') this.lastPt = null; this.strokeHits = 0 }
+  private pUp(e: PointerEvent) {
+    if (this.otherPtr(e)) return
+    this.ptrId = null; this.ptrDown = false; if (e.pointerType !== 'mouse') this.lastPt = null; this.strokeHits = 0
+  }
 
   private pMove(e: PointerEvent) {
+    if (this.otherPtr(e)) return
     const p = this.localPt(e)
     this.par.tx = (p.x / this.W - .5); this.par.ty = (p.y / this.H - .5)
     const a = this.lastPt; this.lastPt = p
