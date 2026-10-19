@@ -545,6 +545,15 @@ export class Engine {
     this.clearTimeout(this.perfTO); this.perfTO = this.timeout(() => set({ perfOn: false }), 850)
   }
 
+  private critTO?: number
+  /** "Critico! +3", kept above the combo label (which sits on the slice, near the bottom here). Returns its y. */
+  private showCritical(x: number, y: number) {
+    x = Math.max(90, Math.min(this.W - 90, x)); y = Math.max(120, Math.min(this.H - 220, y))
+    set({ critOn: true, critX: x + 'px', critY: y + 'px' })
+    this.clearTimeout(this.critTO); this.critTO = this.timeout(() => set({ critOn: false }), 850)
+    return y
+  }
+
   private comboTO?: number
   private showCombo(n: number, x: number, y: number) {
     x = Math.max(90, Math.min(this.W - 90, x)); y = Math.max(140, Math.min(this.H - 140, y))
@@ -1100,9 +1109,13 @@ export class Engine {
     this.strokeHits = (this.strokeHits || 0) + 1
     const idx = it.data ? PROJECTS.indexOf(it.data) : -1, base = [523, 587, 659, 784, 880, 1047][idx] || 660
     this.sfx.play('pop', { f: base * Math.pow(2, Math.min(this.strokeHits - 1, 7) / 6), n: this.strokeHits }); this.buzz(8)
-    const perfect = perp < 0.2, cp = this.toScreen(it.pos)
+    // "Perfetto": the cut passes within 10% of a radius from the centre (about 1 random cut in 10)
+    const perfect = perp < 0.1, cp = this.toScreen(it.pos)
+    // "Critico": cut while falling with its centre in the bottom 15% of the screen, about to leave it
+    const critical = it.vel.y < 0 && it.pos.y < -this.viewH * 0.35
     let pts = 1
     if (perfect) pts += 2
+    if (critical) pts += 3
     if (this.strokeHits >= 3) { pts += this.strokeHits === 3 ? 3 : 1; this.showCombo(this.strokeHits, cp.x, cp.y); this.bloomPulse = Math.max(this.bloomPulse, 0.5) }
     this.score += pts
     const upd: Partial<UIState> = { score: this.score }
@@ -1119,12 +1132,14 @@ export class Engine {
       reveal = o.popups && (first || o.always)
     }
     set(upd)
-    if (perfect) { this.showPerfect(cp.x, cp.y - 64); this.buzz([0, 12, 30, 12]); this.bloomPulse = 1; this.caPulse = Math.max(this.caPulse, 0.4) }
+    const critY = critical ? this.showCritical(cp.x, cp.y - 64) : 0
+    if (critical) { this.buzz([0, 20, 40, 20]); this.shakeAmt = Math.max(this.shakeAmt, 0.18); this.bloomPulse = 1; this.caPulse = Math.max(this.caPulse, 0.5) }
+    if (perfect) { this.showPerfect(cp.x, critical ? critY - 44 : cp.y - 64); this.buzz([0, 12, 30, 12]); this.bloomPulse = 1; this.caPulse = Math.max(this.caPulse, 0.4) }
     if (reveal && !this.focusPending) { this.focusPending = true; this.focusOn(it, it.data!) }
     else {
       // no popup for this one (another is on its way, or "Solo gioco" is on): its pill starts the countdown now
       if (upd.fresh) this.freshOff()
-      if (perfect) { this.tweenTime(0.2, 0.06, ease.outCubic); this.after(0.28, () => { if (this.mode === 'play') this.tweenTime(1, 0.4, ease.inCubic) }) }
+      if (perfect || critical) { this.tweenTime(0.2, 0.06, ease.outCubic); this.after(0.28, () => { if (this.mode === 'play') this.tweenTime(1, 0.4, ease.inCubic) }) }
     }
   }
 

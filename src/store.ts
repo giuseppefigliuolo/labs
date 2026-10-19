@@ -61,6 +61,9 @@ export type UIState = {
   perfOn: boolean
   perfX: string
   perfY: string
+  critOn: boolean
+  critX: string
+  critY: string
 }
 
 const read = (k: string) => {
@@ -119,7 +122,10 @@ export const useUI = create<UIState>(() => ({
   comboOn: false,
   perfOn: false,
   perfX: '50%',
-  perfY: '30%'
+  perfY: '30%',
+  critOn: false,
+  critX: '50%',
+  critY: '30%'
 }))
 
 /** Player setting if set, otherwise the build-time default. */
