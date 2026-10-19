@@ -332,8 +332,8 @@ export class Engine {
     this.viewH = 2 * this.camZ * Math.tan(this.fov * Math.PI / 360)
     this.viewW = this.viewH * this.camera.aspect
     const touch = !!window.matchMedia?.('(pointer: coarse)').matches, portrait = innerHeight > innerWidth
-    // bigger bubbles on a phone held sideways (Fruit Ninja style)
-    this.r = Math.min(this.viewW * 0.16, this.viewH * (touch && !portrait ? 0.11 : 0.09))
+    // bigger bubbles on a phone held sideways (Fruit Ninja style); on narrow screens the width caps them at ~1/5 of it
+    this.r = Math.min(this.viewW * 0.105, this.viewH * (touch && !portrait ? 0.11 : 0.09))
     this.syncDevice(touch, portrait)
     this.g = this.viewH * 1.0
     const rr = this.root.getBoundingClientRect(); this.rootX = rr.left; this.rootY = rr.top
