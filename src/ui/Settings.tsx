@@ -1,4 +1,4 @@
-import type { Settings as SettingsT } from '../config'
+import { CONFIG, type Settings as SettingsT } from '../config'
 import { cfg, setSetting, useUI, type Orient } from '../store'
 import type { Actions } from './actions'
 import { CloseIcon } from './icons'
@@ -23,6 +23,7 @@ export function Settings({ actions, leaving }: { actions: Actions; leaving?: boo
   const settings = useUI(s => s.settings)
   const touch = useUI(s => s.touch)
   const portrait = useUI(s => s.portrait)
+  const muted = useUI(s => s.muted)
   const cur = <K extends keyof SettingsT>(k: K) => cfg(k, settings)
   const cls = (on: boolean, variant: string) => `opt opt--${variant}` + (on ? ' is-on' : '')
 
@@ -47,6 +48,15 @@ export function Settings({ actions, leaving }: { actions: Actions; leaving?: boo
                 </span>
                 <span className="opt__switch"><span /></span>
               </button>
+              {CONFIG.sound && (
+                <button data-ui="1" role="switch" aria-checked={!muted} className={cls(!muted, 'toggle')} onClick={actions.toggleMute}>
+                  <span className="opt__copy">
+                    <span className="opt__name">Audio</span>
+                    <span className="opt__desc">Effetti sonori del gioco.</span>
+                  </span>
+                  <span className="opt__switch"><span /></span>
+                </button>
+              )}
             </div>
             <div className="settings__group">
               <div className="settings__label">Difficoltà</div>

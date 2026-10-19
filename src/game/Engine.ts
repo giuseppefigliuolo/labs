@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { CONFIG } from '../config'
 import { BITROCK, PROJECTS, type Project } from '../data/projects'
-import { cfg, saveBest, saveMuted, useUI, type PopAnim, type UIState } from '../store'
+import { cfg, saveBest, saveMuted, saveUnlocked, useUI, type PopAnim, type UIState } from '../store'
 import { Sfx } from './audio'
 import { buildBands, makeEnv, type Band } from './logo3d'
 import { PostFX } from './post'
@@ -415,12 +415,16 @@ export class Engine {
     if (this.setPrev === 'play' && this.mode === 'paused') { this.tweenTime(1, 0.6, ease.inCubic); this.after(0.3, () => { if (this.mode === 'paused') this.mode = 'play' }) }
   }
 
-  /** Projects bottom sheet: pauses the game like the settings panel. */
-  openList = () => {
+  /**
+   * Projects bottom sheet: pauses the game like the settings panel. With `all` (top bar button,
+   * once every project has been unlocked) it lists them all and opens from the other screens too.
+   */
+  openList = (all = false) => {
     const s = ui()
-    if (this.mode !== 'play' || s.settingsOpen || s.listOpen || s.popup) return
-    this.mode = 'paused'; this.tweenTime(0, 0.3, ease.outCubic)
-    set({ listOpen: true, listShown: false })
+    const can = this.mode === 'play' || (all && s.unlockedAll && (this.mode === 'intro' || this.mode === 'over' || this.mode === 'complete'))
+    if (!can || s.settingsOpen || s.listOpen || s.popup) return
+    if (this.mode === 'play') { this.mode = 'paused'; this.tweenTime(0, 0.3, ease.outCubic) }
+    set({ listOpen: true, listShown: false, listAll: all })
     requestAnimationFrame(() => requestAnimationFrame(() => { if (ui().listOpen) set({ listShown: true }) }))
   }
 
@@ -430,11 +434,12 @@ export class Engine {
     if (this.mode === 'paused') { this.tweenTime(1, 0.6, ease.inCubic); this.after(0.3, () => { if (this.mode === 'paused') this.mode = 'play' }) }
   }
 
-  /** A found project tapped in the sheet: its popup replaces the sheet and closing it resumes the game. */
+  /** A found project tapped in the sheet: its popup replaces the sheet and closing it goes back to where the sheet was opened. */
   openFromList = (data: Project, x: number, y: number) => {
     if (!ui().listShown || ui().popup) return
     this.hideList()
-    this.prevMode = 'play'; this.mode = 'focus'; this.tweenTime(0.035, 0.4, ease.outCubic)
+    this.prevMode = this.mode === 'paused' ? 'play' : this.mode
+    if (this.prevMode === 'play') { this.mode = 'focus'; this.tweenTime(0.035, 0.4, ease.outCubic) }
     this.openPopup(data, x, y)
   }
 
@@ -472,7 +477,7 @@ export class Engine {
     set({ popupShown: false })
     this.timeout(() => { set({ popup: null }); this.closing = false }, ({ portal: 700, tilt: 560 } as Partial<Record<PopAnim, number>>)[ui().anim] || 480)
     if (ui().fresh) this.freshOff()
-    if (this.prevMode === 'over' || this.prevMode === 'complete') { this.mode = this.prevMode; return }
+    if (this.backTo()) { this.mode = this.prevMode; return }
     const f0 = { ...this.fx }
     this.tween('fx', 0.95, ease.inOutQuart, p => { this.fx.fov = f0.fov + (this.fov - f0.fov) * p; this.fx.roll = f0.roll * (1 - p); this.fx.blur = f0.blur * (1 - p) })
     this.tweenCamera(this.camHome.clone(), new THREE.Vector3(), 0.95, ease.inOutQuart)
@@ -920,12 +925,15 @@ export class Engine {
     }
   }
 
+  /** The popup was opened over a screen (not the running game): closing it just goes back there. */
+  private backTo() { return this.prevMode === 'over' || this.prevMode === 'complete' || this.prevMode === 'intro' }
+
   private openPopup(data: Project, x: number, y: number) {
     set({
       popup: data, popupShown: false,
       origin: `${Math.round(x)}px ${Math.round(y)}px`, ox: Math.round(x), oy: Math.round(y),
       anim: this.popAnim(), side: this.popSide || 1, ptint: data.id === 'bitrock' ? '#ff6a00' : data.tint,
-      backLabel: this.prevMode === 'over' || this.prevMode === 'complete' ? 'Chiudi' : 'Torna al gioco'
+      backLabel: this.backTo() ? 'Chiudi' : 'Torna al gioco'
     })
     requestAnimationFrame(() => requestAnimationFrame(() => set({ popupShown: true })))
   }
@@ -1046,7 +1054,10 @@ export class Engine {
       const id = it.data!.id, first = !this.found.includes(id)
       if (first) {
         this.found = [...this.found, id]; upd.found = this.found; upd.fresh = id; this.clearTimeout(this.freshTO)
-        if (this.found.length === PROJECTS.length && !this.allDone) { this.allDone = true; this.allPending = true }
+        if (this.found.length === PROJECTS.length && !this.allDone) {
+          this.allDone = true; this.allPending = true
+          if (!ui().unlockedAll) { saveUnlocked(); upd.unlockedAll = true }
+        }
       }
       reveal = o.popups && (first || o.always)
     }

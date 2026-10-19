@@ -5,6 +5,7 @@ import type { Project } from './data/projects'
 const KEY_BEST = 'bitrock-labs-best'
 const KEY_SETTINGS = 'bitrock-labs-settings'
 const KEY_MUTED = 'bitrock-labs-muted'
+const KEY_UNLOCKED = 'bitrock-labs-unlocked'
 
 export type Phase = 'loading' | 'intro' | 'starting' | 'play' | 'over'
 export type PopAnim = 'scale' | 'swing' | 'blur' | 'portal' | 'tilt'
@@ -28,6 +29,10 @@ export type UIState = {
   // projects bottom sheet: mounted while listOpen, slid in while listShown
   listOpen: boolean
   listShown: boolean
+  /** Sheet opened from the top bar: lists every project as found, whatever the current run. */
+  listAll: boolean
+  /** Every project found at least once (in any run, kept across visits): unlocks the top bar list. */
+  unlockedAll: boolean
   // device: coarse pointer, portrait viewport, "Ruota il telefono" overlay and the orientation it asks for
   touch: boolean
   portrait: boolean
@@ -89,6 +94,8 @@ export const useUI = create<UIState>(() => ({
   settingsOpen: false,
   listOpen: false,
   listShown: false,
+  listAll: false,
+  unlockedAll: read(KEY_UNLOCKED) === '1',
   touch: false,
   portrait: false,
   rotateHint: false,
@@ -126,4 +133,5 @@ export const setSetting = <K extends keyof Settings>(k: K, v: Settings[K]) => {
 }
 
 export const saveBest = (best: number) => write(KEY_BEST, String(best))
+export const saveUnlocked = () => write(KEY_UNLOCKED, '1')
 export const saveMuted = (m: boolean) => write(KEY_MUTED, m ? '1' : '0')

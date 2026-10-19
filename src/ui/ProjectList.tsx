@@ -6,12 +6,13 @@ import { Orb } from './Orb'
 /**
  * One row per project, used by the projects sheet and the game over screen.
  * Found projects open their popup; the others show a hint and can't be tapped.
+ * With `all` every project counts as found.
  */
-export function ProjectList({ onOpen, compact }: { onOpen: (p: Project, x: number, y: number) => void; compact?: boolean }) {
+export function ProjectList({ onOpen, compact, all }: { onOpen: (p: Project, x: number, y: number) => void; compact?: boolean; all?: boolean }) {
   const found = useUI(s => s.found)
   return (
     <div className={'plist' + (compact ? ' plist--compact' : '')}>
-      {PROJECTS.map(p => found.includes(p.id)
+      {PROJECTS.map(p => all || found.includes(p.id)
         ? (
           <button key={p.id} data-ui="1" className="plist__row is-found" onClick={e => onOpen(p, e.clientX, e.clientY)}>
             <Orb p={p} className="plist__dot" />

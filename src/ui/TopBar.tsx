@@ -1,18 +1,16 @@
-import { CONFIG } from '../config'
 import { bitrockPng } from '../data/projects'
 import { useUI } from '../store'
 import type { Actions } from './actions'
-import { GearIcon, LifeIcon, SoundOffIcon, SoundOnIcon } from './icons'
+import { GearIcon, LifeIcon, ListIcon } from './icons'
 
 export function TopBar({ actions }: { actions: Actions }) {
   const phase = useUI(s => s.phase)
   const score = useUI(s => s.score)
   const best = useUI(s => s.best)
   const lives = useUI(s => s.lives)
-  const muted = useUI(s => s.muted)
   const complete = useUI(s => s.complete)
+  const unlockedAll = useUI(s => s.unlockedAll)
   const showHud = phase === 'play' && !complete
-  const muteLabel = muted ? 'Attiva audio' : 'Disattiva audio'
 
   return (
     <div className="topbar">
@@ -30,14 +28,14 @@ export function TopBar({ actions }: { actions: Actions }) {
       </div>
       <div className="topbar__right">
         <div className="icon-row">
+          {unlockedAll && phase !== 'loading' && phase !== 'starting' && (
+            <button data-ui="1" className="icon-btn" onClick={() => actions.openList(true)} aria-label="Tutti i progetti" title="Tutti i progetti">
+              <ListIcon />
+            </button>
+          )}
           {phase !== 'loading' && (
             <button data-ui="1" className="icon-btn" onClick={actions.openSettings} aria-label="Impostazioni" title="Impostazioni">
               <GearIcon />
-            </button>
-          )}
-          {CONFIG.sound && (
-            <button data-ui="1" className="icon-btn" onClick={actions.toggleMute} aria-label={muteLabel} title={muteLabel}>
-              {muted ? <SoundOffIcon /> : <SoundOnIcon />}
             </button>
           )}
         </div>

@@ -30,7 +30,7 @@ export default function App() {
   const actions = useMemo<Actions>(() => ({
     openSettings: () => engine.current?.openSettings(),
     closeSettings: () => engine.current?.closeSettings(),
-    openList: () => engine.current?.openList(),
+    openList: all => engine.current?.openList(all),
     closeList: () => engine.current?.closeList(),
     openFromList: (p, x, y) => engine.current?.openFromList(p, x, y),
     toggleMute: () => engine.current?.toggleMute(),

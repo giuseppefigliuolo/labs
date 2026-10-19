@@ -37,7 +37,7 @@ export function Tray({ actions }: { actions: Actions }) {
   return (
     <div className="tray">
       <div data-ui="1" className="tray__box" onPointerDown={e => { down.current = { id: e.pointerId, y: e.clientY } }}>
-        <button data-ui="1" className="tray__count" onClick={actions.openList} aria-label="Apri la lista dei progetti">
+        <button data-ui="1" className="tray__count" onClick={() => actions.openList()} aria-label="Apri la lista dei progetti">
           <ChevronUpIcon />
           <span className="label">Progetti scoperti {found.length}/{PROJECTS.length}</span>
         </button>

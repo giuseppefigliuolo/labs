@@ -7,15 +7,9 @@ export const GearIcon = () => (
   </svg>
 )
 
-export const SoundOnIcon = () => (
+export const ListIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" {...line}>
-    <path d="M11 5 6 9H2v6h4l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M19 5a10 10 0 0 1 0 14" />
-  </svg>
-)
-
-export const SoundOffIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" {...line}>
-    <path d="M11 5 6 9H2v6h4l5 4V5z" /><path d="m22 9-6 6" /><path d="m16 9 6 6" />
+    <path d="M9 6h11" /><path d="M9 12h11" /><path d="M9 18h11" /><path d="M4 6h.01" /><path d="M4 12h.01" /><path d="M4 18h.01" />
   </svg>
 )
 
