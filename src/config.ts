@@ -24,6 +24,7 @@ export const CONFIG = {
   bugs: true,
   bugRule: 'game over' as BugRule, // (settings)
   popupMode: 'prima volta' as PopupMode,
+  soloGioco: false, // (settings) no project popups: slicing never stops the game
   // Effetti
   sliceStyle: 'lucido' as SliceStyle,
   sliceSound: 'mela' as SliceSound,
@@ -40,6 +41,7 @@ export type Settings = {
   difficulty: Difficulty
   bugRule: BugRule
   sfondo: Sfondo
+  soloGioco: boolean
 }
 
 export const TITLE_FONTS: Record<TitleFont, { family: string; google?: string }> = {

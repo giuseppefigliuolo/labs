@@ -307,6 +307,11 @@ a { color: #ff6a00; text-decoration: none }
 .opt__name { font-weight: 800; font-size: 15px }
 .opt__desc { font-size: 14px; line-height: 1.45; font-weight: 400; color: #cdb39e }
 .opt.is-on .opt__desc { color: #ecd3bd }
+.opt--toggle { display: flex; align-items: center; gap: 14px; text-align: left; padding: 14px 16px; border-radius: 12px }
+.opt__switch { position: relative; margin-left: auto; width: 46px; height: 28px; border-radius: 14px; background: rgba(255,255,255,.18); flex-shrink: 0; transition: background .25s cubic-bezier(.4,0,.2,1) }
+.opt__switch span { position: absolute; top: 4px; left: 4px; width: 20px; height: 20px; border-radius: 50%; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,.35); transition: transform .25s cubic-bezier(.4,0,.2,1) }
+.opt.is-on .opt__switch { background: #ff9a00 }
+.opt.is-on .opt__switch span { transform: translateX(18px) }
 .settings__done { align-self: stretch }
 
 /* ============ Project popup ============ */

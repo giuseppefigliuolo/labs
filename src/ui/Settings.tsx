@@ -39,6 +39,16 @@ export function Settings({ actions, leaving }: { actions: Actions; leaving?: boo
           </div>
           <div className="settings__body">
             <div className="settings__group">
+              <div className="settings__label">Modalità</div>
+              <button data-ui="1" role="switch" aria-checked={cur('soloGioco')} className={cls(cur('soloGioco'), 'toggle')} onClick={() => setSetting('soloGioco', !cur('soloGioco'))}>
+                <span className="opt__copy">
+                  <span className="opt__name">Solo gioco</span>
+                  <span className="opt__desc">Niente popup dei progetti: tagli e continui a giocare senza interruzioni. Li ritrovi comunque nella lista dei progetti.</span>
+                </span>
+                <span className="opt__switch"><span /></span>
+              </button>
+            </div>
+            <div className="settings__group">
               <div className="settings__label">Difficoltà</div>
               <div className="settings__grid">
                 {DIFF.map(([v, label]) => (

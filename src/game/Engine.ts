@@ -476,9 +476,15 @@ export class Engine {
     const f0 = { ...this.fx }
     this.tween('fx', 0.95, ease.inOutQuart, p => { this.fx.fov = f0.fov + (this.fov - f0.fov) * p; this.fx.roll = f0.roll * (1 - p); this.fx.blur = f0.blur * (1 - p) })
     this.tweenCamera(this.camHome.clone(), new THREE.Vector3(), 0.95, ease.inOutQuart)
-    if (this.allPending) { this.allPending = false; this.focusPending = false; this.mode = 'complete'; this.tweenTime(0.12, 0.6, ease.outCubic); this.after(0.55, () => this.celebrate()); return }
+    if (this.allPending) { this.focusPending = false; this.finishAll(); return }
     this.tweenTime(1, 0.9, ease.inCubic)
     this.after(0.45, () => { this.mode = 'play'; this.focusPending = false })
+  }
+
+  /** Every project found: slow down and show the "complete" screen. */
+  private finishAll() {
+    this.allPending = false; this.mode = 'complete'
+    this.tweenTime(0.12, 0.6, ease.outCubic); this.after(0.55, () => this.celebrate())
   }
 
   // ---------- options ----------
@@ -489,6 +495,7 @@ export class Engine {
       bugMul: d === 'facile' ? 0.7 : d === 'difficile' ? 1.4 : 1,
       bugs: CONFIG.bugs,
       always: CONFIG.popupMode === 'ogni taglio',
+      popups: !cfg('soloGioco'),
       trail: CONFIG.trail
     }
   }
@@ -1041,15 +1048,16 @@ export class Engine {
         this.found = [...this.found, id]; upd.found = this.found; upd.fresh = id; this.clearTimeout(this.freshTO)
         if (this.found.length === PROJECTS.length && !this.allDone) { this.allDone = true; this.allPending = true }
       }
-      reveal = first || o.always
+      reveal = o.popups && (first || o.always)
     }
     set(upd)
     if (perfect) { this.showPerfect(cp.x, cp.y - 64); this.buzz([0, 12, 30, 12]); this.bloomPulse = 1; this.caPulse = Math.max(this.caPulse, 0.4) }
     if (reveal && !this.focusPending) { this.focusPending = true; this.focusOn(it, it.data!) }
     else {
-      // another popup is already on its way and this one won't open: its pill starts the countdown now
+      // no popup for this one (another is on its way, or "Solo gioco" is on): its pill starts the countdown now
       if (upd.fresh) this.freshOff()
-      if (perfect) { this.tweenTime(0.2, 0.06, ease.outCubic); this.after(0.28, () => { if (this.mode === 'play') this.tweenTime(1, 0.4, ease.inCubic) }) }
+      if (this.allPending && !o.popups) this.finishAll()
+      else if (perfect) { this.tweenTime(0.2, 0.06, ease.outCubic); this.after(0.28, () => { if (this.mode === 'play') this.tweenTime(1, 0.4, ease.inCubic) }) }
     }
   }
 
@@ -1182,7 +1190,7 @@ export class Engine {
     this.sfx.play('pop', { f: 784, n: 1 }); this.timeout(() => this.sfx.play('pop', { f: 784 * 1.5, n: 1 }), 90); this.buzz(30)
     this.after(0.5, () => {
       const o = this.opt()
-      if (!this.bitrockSeen || o.always) {
+      if (o.popups && (!this.bitrockSeen || o.always)) {
         this.bitrockSeen = true; this.focusPending = true
         this.focusOn({ pos: center, tint: '#ff6a00' }, BITROCK)
       } else this.mode = 'play'

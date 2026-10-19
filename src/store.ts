@@ -69,8 +69,8 @@ export const write = (k: string, v: string) => {
 // which is project config and must be ignored.
 const initialSettings = (): Partial<Settings> => {
   try {
-    const { difficulty, bugRule, sfondo } = JSON.parse(read(KEY_SETTINGS) || '{}') || {}
-    return { ...(difficulty && { difficulty }), ...(bugRule && { bugRule }), ...(sfondo && { sfondo }) }
+    const { difficulty, bugRule, sfondo, soloGioco } = JSON.parse(read(KEY_SETTINGS) || '{}') || {}
+    return { ...(difficulty && { difficulty }), ...(bugRule && { bugRule }), ...(sfondo && { sfondo }), ...(typeof soloGioco === 'boolean' && { soloGioco }) }
   } catch { return {} }
 }
 
