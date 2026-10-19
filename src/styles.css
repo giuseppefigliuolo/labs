@@ -237,16 +237,16 @@ a { color: #ff6a00; text-decoration: none }
    Primary: .btn-primary, .pop-cta, .settings__done. Secondary: .btn-ghost, .pop-link.
    The press is only a visual translateY, so nothing around the button moves. */
 .btn-primary, .pop-cta, .settings__done {
-  --sh: inset 0 2px 0 rgba(255,230,190,.75), inset 0 -1px 0 rgba(150,40,0,.3), 0 1px 3px rgba(0,0,0,.2); --ring: 0 0 0 0 transparent;
+  --sh: inset 0 2px 0 rgba(255,230,190,.75); --ring: 0 0 0 0 transparent;
   height: 56px; padding: 0 30px; box-sizing: border-box; border: none; border-radius: 100px; display: flex; align-items: center; justify-content: center; cursor: pointer; text-decoration: none;
   background: linear-gradient(180deg, #ffa640 0%, #ff6a00 55%, #e04e00 100%); box-shadow: var(--sh), var(--ring);
   color: #ffffff; font-family: Nunito, sans-serif; font-weight: 900; font-size: 18px; text-shadow: 0 2px 0 rgba(140,40,0,.55);
   transition: filter .2s ease, transform .12s ease, box-shadow .12s ease
 }
-.btn-primary:active, .pop-cta:active, .settings__done:active { transform: translateY(2px); --sh: inset 0 2px 0 rgba(255,230,190,.5), inset 0 0 0 rgba(150,40,0,0), 0 0 2px rgba(0,0,0,.2) }
+.btn-primary:active, .pop-cta:active, .settings__done:active { transform: translateY(2px); --sh: inset 0 2px 0 rgba(255,230,190,.5) }
 .btn-primary:focus-visible, .pop-cta:focus-visible, .settings__done:focus-visible { outline: none; --ring: 0 0 0 3px #fff4e0 }
 .btn-ghost, .pop-link {
-  --sh: inset 0 1px 0 rgba(255,255,255,.3), 0 1px 4px rgba(0,0,0,.2);
+  --sh: inset 0 1px 0 rgba(255,255,255,.3);
   height: 56px; padding: 0 24px; box-sizing: border-box; border: 1px solid rgba(255,255,255,.22); border-radius: 100px; display: flex; align-items: center; justify-content: center; cursor: pointer; text-decoration: none;
   background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.05)); box-shadow: var(--sh);
   color: #ffffff; font-family: Nunito, sans-serif; font-weight: 800; font-size: 16px;
@@ -260,7 +260,7 @@ a { color: #ff6a00; text-decoration: none }
 }
 @media (prefers-reduced-motion: reduce) {
   .btn-primary:active, .pop-cta:active, .settings__done:active, .btn-ghost:active, .pop-link:active { transform: none }
-  .btn-ghost:active, .pop-link:active { --sh: inset 0 1px 0 rgba(255,255,255,.3), 0 0 2px rgba(0,0,0,.2) }
+  .btn-ghost:active, .pop-link:active { --sh: inset 0 1px 0 rgba(255,255,255,.2) }
 }
 .complete__label { color: #ffe2c7 }
 .complete__title { font-size: clamp(34px,min(12vw,9vh),72px); line-height: 1; color: #ff9a00; -webkit-text-stroke-width: 5px; text-shadow: 0 7px 0 #1a0d05; text-wrap: balance }
@@ -397,17 +397,35 @@ a { color: #ff6a00; text-decoration: none }
 .pop-carta .pop-ctas { justify-content: center }
 .pop-carta .pop-back { display: block; margin: 6px auto 0; height: 40px; color: #ffe2c7; font-family: Nunito, sans-serif; font-weight: 800 }
 
-/* Secondary on light popups (Essenziale, Arcade, Carta sheet) */
-.pop-essenziale .pop-link, .pop-arcade .pop-link, .pop-carta .pop-link {
-  --sh: inset 0 1px 0 #ffffff, 0 1px 3px rgba(26,13,5,.12);
+/* Secondary on light popups (Essenziale, Arcade) */
+.pop-essenziale .pop-link, .pop-arcade .pop-link {
+  --sh: inset 0 1px 0 #ffffff;
   border: 1px solid rgba(26,13,5,.18); background: linear-gradient(180deg, #ffffff, #fff1e3); color: #1a0d05
 }
-.pop-essenziale .pop-link:focus-visible, .pop-arcade .pop-link:focus-visible, .pop-carta .pop-link:focus-visible { outline-color: #c25400 }
+.pop-essenziale .pop-link:focus-visible, .pop-arcade .pop-link:focus-visible { outline-color: #c25400 }
 @media (hover: hover) {
-  .pop-essenziale .pop-link:hover, .pop-arcade .pop-link:hover, .pop-carta .pop-link:hover { background: linear-gradient(180deg, #ffffff, #ffe7d1); color: #1a0d05 }
+  .pop-essenziale .pop-link:hover, .pop-arcade .pop-link:hover { background: linear-gradient(180deg, #ffffff, #ffe7d1); color: #1a0d05 }
 }
 @media (prefers-reduced-motion: reduce) {
-  .pop-essenziale .pop-link:active, .pop-arcade .pop-link:active, .pop-carta .pop-link:active { --sh: inset 0 1px 0 #ffffff, 0 0 2px rgba(26,13,5,.12) }
+  .pop-essenziale .pop-link:active, .pop-arcade .pop-link:active { --sh: inset 0 1px 0 rgba(255,255,255,.6) }
+}
+
+/* Carta: "sticker" CTAs, flat ink border and hard offset shadow like the "Scoperto" stamp */
+.pop-carta .pop-ctas { gap: 12px }
+.pop-carta .pop-cta, .pop-carta .pop-link {
+  height: 50px; padding: 0 26px; border: 2.5px solid #1a0d05; box-shadow: 0 4px 0 #1a0d05; color: #1a0d05; text-shadow: none;
+  font-size: 16px; transition: transform .1s ease, box-shadow .1s ease, background .2s ease
+}
+.pop-carta .pop-cta { background: #ff9a00; font-weight: 900 }
+.pop-carta .pop-link { padding: 0 22px; background: #ffffff; font-weight: 800 }
+.pop-carta .pop-cta:active, .pop-carta .pop-link:active { transform: translateY(4px); box-shadow: 0 0 0 #1a0d05 }
+.pop-carta .pop-cta:focus-visible, .pop-carta .pop-link:focus-visible { outline: 3px solid #ff9a00; outline-offset: 3px }
+@media (hover: hover) {
+  .pop-carta .pop-cta:hover { background: #ffad33; filter: none; color: #1a0d05 }
+  .pop-carta .pop-link:hover { background: #fff1e3; color: #1a0d05 }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pop-carta .pop-cta:active, .pop-carta .pop-link:active { transform: none }
 }
 
 /* ============ "Ruota il telefono" overlay ============ */
@@ -472,6 +490,7 @@ a { color: #ff6a00; text-decoration: none }
   .pop-carta .pop-body { padding: 12px 18px 14px; gap: 10px }
   .pop-carta .pop-chip { padding: 4px 9px; font-size: 11px }
   .pop-carta .pop-back { margin-top: 2px; height: 32px }
+  .pop-carta .pop-cta, .pop-carta .pop-link { height: 44px; padding: 0 18px; font-size: 14px }
 }
 /* Phone in landscape: the card goes side by side (logo left, text right) so it fits without scrolling */
 @media (max-height: 519.98px) and (orientation: landscape) {

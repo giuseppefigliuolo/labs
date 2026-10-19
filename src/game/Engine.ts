@@ -175,7 +175,6 @@ export class Engine {
   constructor(root: HTMLElement, mount: HTMLElement) {
     this.root = root
     this.mount = mount
-    ;(window as any).__engine = this // TEMP DEBUG
   }
 
   start() {
