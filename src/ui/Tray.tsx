@@ -41,7 +41,7 @@ export function Tray({ actions }: { actions: Actions }) {
           <ChevronUpIcon />
           <span className="label">Progetti scoperti {found.length}/{PROJECTS.length}</span>
         </button>
-        <div className="tray__row">
+        <div className="tray__row" style={{ '--n': PROJECTS.length } as CSSProperties}>
           {PROJECTS.map(p => {
             const f = found.includes(p.id)
             return (

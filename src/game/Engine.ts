@@ -892,7 +892,7 @@ export class Engine {
       open(0.5)
     } else {
       this.tweenTime(0.035, 0.5, E.outCubic)
-      this.tweenCamera(new THREE.Vector3(tgt.x * 0.85, tgt.y * 0.85, 4.4), tgt, 1.2, E.inOutCubic)
+      this.tweenCamera(new THREE.Vector3(tgt.x * 0.85, tgt.y * 0.85, 6.4), tgt, 1.2, E.inOutCubic)
       open(0.7)
     }
   }

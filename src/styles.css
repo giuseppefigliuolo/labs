@@ -118,15 +118,16 @@ a { color: #ff6a00; text-decoration: none }
 .tray__count { display: flex; flex-direction: column; align-items: center; gap: 0; min-height: 44px; padding: 0 12px; border: none; background: none; color: rgba(255,255,255,.8); font-family: 'Nunito Sans', sans-serif; cursor: pointer; transition: color .25s cubic-bezier(.4,0,.2,1) }
 .tray__count:hover { color: #ffffff }
 .tray__count svg { color: #ff9a00 }
-.tray__row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px }
+.tray__row { --pill: 44px; --pill-gap: 8px; display: flex; flex-wrap: nowrap; justify-content: center; gap: var(--pill-gap); max-width: 100% }
 
 /* Project pill: the project's orb, plus its name revealed while .is-fresh */
-.pill { min-width: 44px; height: 44px; box-sizing: border-box; flex-shrink: 0; border-radius: 100px; border: 1.5px dashed rgba(255,255,255,0.4); background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.7); font-family: Nunito, sans-serif; font-weight: 800; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 0; cursor: default; padding: 0; transform: scale(.86); transition: all .6s cubic-bezier(.16,1,.3,1) }
+.pill { min-width: var(--pill); height: var(--pill); box-sizing: border-box; flex-shrink: 0; border-radius: 100px; border: 1.5px dashed rgba(255,255,255,0.4); background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.7); font-family: Nunito, sans-serif; font-weight: 800; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 0; cursor: default; padding: 0; transform: scale(.86); transition: all .6s cubic-bezier(.16,1,.3,1) }
 .pill.is-found { border: none; background: rgba(0,0,0,0); color: #ffffff; cursor: pointer; transform: scale(1) }
 .pill.is-fresh { padding-right: 18px; gap: 10px; background: color-mix(in srgb, var(--tint) 22%, #000); box-shadow: 0 0 28px color-mix(in srgb, var(--tint) 70%, transparent) }
-.pill .orb { width: 44px; height: 44px }
-.pill__rest { display: inline-block; max-width: 0; overflow: hidden; white-space: nowrap; transition: max-width .6s cubic-bezier(.16,1,.3,1) }
-.pill.is-fresh .pill__rest { max-width: 200px }
+.pill .orb { width: var(--pill); height: var(--pill) }
+.pill__rest { display: inline-block; max-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; transition: max-width .6s cubic-bezier(.16,1,.3,1) }
+/* the name gets whatever the other pills leave free, so the row never wraps (--n = pill count, set by Tray) */
+.pill.is-fresh .pill__rest { max-width: clamp(0px, calc(100vw - 32px - var(--n) * (var(--pill) + var(--pill-gap)) + var(--pill-gap) - 28px), 200px) }
 
 /* Project rows: projects sheet and game over */
 .plist { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px,100%), 1fr)); gap: 6px; text-align: left }
@@ -389,3 +390,58 @@ a { color: #ff6a00; text-decoration: none }
 .labs--lite .scrim, .labs--lite .screen--over, .labs--lite .settings, .labs--lite .pop-vetro, .labs--lite .pop-vetro .pop-close { backdrop-filter: none; -webkit-backdrop-filter: none }
 .labs--lite .scrim { background: rgba(20,12,7,.72) }
 .labs--lite .screen--over { background: rgba(20,12,7,.78) }
+
+/* ============ Compact phones ============
+   Short viewports (phone in landscape) and narrow ones (portrait): smaller HUD, tray and popup. */
+@media (max-height: 519.98px), (max-width: 479.98px) {
+  .topbar { padding: calc(env(safe-area-inset-top) + 10px) 14px 0 }
+  .topbar__left { gap: 8px }
+  .topbar__right { gap: 8px }
+  .brand img { width: 22px; height: 21px }
+  .brand__name { font-size: 15px }
+  .score__value { font-size: 40px; text-shadow: 0 4px 0 #1a0d05 }
+  .score__best { font-size: 12px }
+  .icon-btn { width: 38px; height: 38px }
+  .lives { gap: 6px }
+  .life { width: 24px; height: 24px }
+
+  .tray { padding-bottom: calc(env(safe-area-inset-bottom) + 10px) }
+  .tray__box { gap: 4px }
+  .tray__count { min-height: 34px }
+  .tray__count .label { font-size: 13px }
+  .tray__row { --pill: 36px; --pill-gap: 6px }
+  .pill { font-size: 14px }
+  .pill.is-fresh { padding-right: 12px; gap: 8px }
+
+  .modal-stage { padding: 8px }
+  .pop-card { max-height: calc(100dvh - 16px) }
+  .pop-desc { font-size: 14px; line-height: 1.45 }
+  .pop-ctas { gap: 8px; padding-top: 0 }
+  .pop-cta { height: 40px; padding: 0 18px; font-size: 14px }
+  .pop-link { height: 40px; padding: 0 16px; font-size: 14px }
+  .pop-back { height: 36px; font-size: 13px }
+
+  .pop-carta { max-width: 360px; padding: 6px 8px 6px; border-radius: 24px }
+  .pop-carta .pop-top { padding: 0 2px 6px 10px }
+  .pop-carta .pop-series { font-size: 12px }
+  .pop-carta .pop-close { width: 36px; height: 36px }
+  .pop-carta .pop-sheet { border-radius: 18px }
+  .pop-carta .pop-hero { height: 120px }
+  .pop-carta .pop-stamp { top: 10px; left: 10px; padding: 3px 8px; border-width: 2px; font-size: 10px }
+  .pop-carta .pop-plate { border-radius: 12px }
+  .pop-carta .pop-banner { margin-top: -18px }
+  .pop-carta .pop-name { padding: 7px 18px; border-width: 2.5px; font-size: 18px }
+  .pop-carta .pop-body { padding: 12px 18px 14px; gap: 10px }
+  .pop-carta .pop-chip { padding: 4px 9px; font-size: 11px }
+  .pop-carta .pop-back { margin-top: 2px; height: 32px }
+}
+/* Phone in landscape: the card goes side by side (logo left, text right) so it fits without scrolling */
+@media (max-height: 519.98px) and (orientation: landscape) {
+  .pop-carta { max-width: 600px }
+  .pop-carta .pop-sheet { display: grid; grid-template-columns: 38% 1fr; grid-template-rows: auto 1fr }
+  .pop-carta .pop-hero { grid-row: 1 / 3; height: auto; min-height: 160px }
+  .pop-carta .pop-plate { width: 76%; height: 92px }
+  .pop-carta .pop-banner { margin-top: 0; padding: 14px 18px 0; justify-content: flex-start }
+  .pop-carta .pop-body { padding: 8px 18px 14px; align-items: flex-start; text-align: left }
+  .pop-carta .pop-chips, .pop-carta .pop-ctas { justify-content: flex-start !important }
+}
