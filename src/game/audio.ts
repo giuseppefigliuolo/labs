@@ -51,8 +51,11 @@ export class Sfx {
     }
   }
 
+  /** Muting also suspends the context, so tails of already scheduled sounds can't leak; `ctx()` resumes it. */
   setMuted(m: boolean) {
-    if (this.ac) this.master.gain.value = m ? 0 : 0.7
+    if (!this.ac) return
+    this.master.gain.value = m ? 0 : 0.7
+    if (m) this.ac.suspend().catch(() => { /* already closed */ })
   }
 
   close() {

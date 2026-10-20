@@ -545,7 +545,8 @@ export class Engine {
     fx.appendChild(d); this.timeout(() => d.remove(), big ? 1800 : 800)
   }
 
-  private buzz(p: number | number[]) { try { if (navigator.vibrate) navigator.vibrate(p) } catch { /* unsupported */ } }
+  // the vibration motor is audible on phones, so it follows the audio toggle
+  private buzz(p: number | number[]) { if (ui().muted) return; try { if (navigator.vibrate) navigator.vibrate(p) } catch { /* unsupported */ } }
 
   private perfTO?: number
   private showPerfect(x: number, y: number) {
