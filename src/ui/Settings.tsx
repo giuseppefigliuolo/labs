@@ -8,9 +8,9 @@ type Opt<V> = [value: V, label: string, desc?: string]
 
 const DIFF: Opt<SettingsT['difficulty']>[] = [['facile', 'Facile'], ['normale', 'Normale'], ['difficile', 'Difficile']]
 const DIFF_DESC: Record<SettingsT['difficulty'], string> = {
-  facile: 'Meno bolle e meno bug: perfetto per esplorare i progetti con calma.',
-  normale: 'Ritmo bilanciato tra progetti e bug.',
-  difficile: 'Più bolle, più veloci e molti più bug.'
+  facile: 'Meno bolle e meno bug: perfetto per esplorare i progetti con calma. Punti ×1.',
+  normale: 'Ritmo bilanciato tra progetti e bug. Punti ×2.',
+  difficile: 'Più bolle, più veloci e molti più bug. Punti ×3.'
 }
 const BG: Opt<SettingsT['sfondo']>[] = [['legno', 'Legno'], ['griglia', 'Griglia'], ['punti', 'Punti'], ['orizzonte', 'Orizzonte'], ['carbonio', 'Carbonio'], ['ardesia', 'Ardesia'], ['minimale', 'Minimale']]
 const ORIENT: Opt<Orient>[] = [['portrait', 'Verticale'], ['landscape', 'Orizzontale']]

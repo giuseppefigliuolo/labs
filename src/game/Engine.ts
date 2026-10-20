@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { CONFIG } from '../config'
 import { BITROCK, PROJECTS, type Project } from '../data/projects'
-import { cfg, saveBest, saveMuted, saveUnlocked, useUI, type PopAnim, type UIState } from '../store'
+import { cfg, pointsMul, saveBest, saveMuted, saveUnlocked, useUI, type PopAnim, type UIState } from '../store'
 import { Sfx } from './audio'
 import { buildBands, makeEnv, type Band } from './logo3d'
 import { PostFX } from './post'
@@ -523,6 +523,7 @@ export class Engine {
     return {
       spawnMul: d === 'facile' ? 0.75 : d === 'difficile' ? 1.3 : 1,
       bugMul: d === 'facile' ? 0.7 : d === 'difficile' ? 1.4 : 1,
+      pts: pointsMul(),
       bugs: CONFIG.bugs,
       always: CONFIG.popupMode === 'ogni taglio',
       popups: !cfg('soloGioco'),
@@ -563,14 +564,14 @@ export class Engine {
   }
 
   private comboTO?: number
-  private showCombo(n: number, x: number, y: number) {
+  private showCombo(n: number, pts: number, x: number, y: number) {
     x = Math.max(90, Math.min(this.W - 90, x)); y = Math.max(140, Math.min(this.H - 140, y))
-    set({ combo: 'Combo ×' + n, comboPts: '+' + n, comboX: x + 'px', comboY: y + 'px', comboOn: true })
+    set({ combo: 'Combo ×' + n, comboPts: '+' + pts, comboX: x + 'px', comboY: y + 'px', comboOn: true })
     this.clearTimeout(this.comboTO); this.comboTO = this.timeout(() => set({ comboOn: false }), 900)
   }
 
   private celebrate() {
-    this.score += 10
+    this.score += 10 * pointsMul()
     set({ complete: true, score: this.score })
     this.sfx.play('complete'); this.buzz([20, 40, 20, 40, 60]); this.bloomPulse = 1.2
     const cols = PROJECTS.map(p => p.tint).concat(['#ffffff', '#fff4e6'])
@@ -1005,7 +1006,8 @@ export class Engine {
   private pick(): { type: ItemType; data?: Project } {
     const o = this.opt(), prog = Math.min(this.score / 30, 1)
     this.spawnCount++
-    if (o.bugs && this.spawnCount > 3 && Math.random() < (0.1 + 0.18 * prog) * o.bugMul) return { type: 'bug' }
+    // bug chance per launch: 7.5% at the start, up to 21% from 30 points on (×0.7 facile, ×1.4 difficile)
+    if (o.bugs && this.spawnCount > 3 && Math.random() < (0.075 + 0.135 * prog) * o.bugMul) return { type: 'bug' }
     // one Bitrock logo at a time: none while another is flying, queued or in its frenzy.
     // The 7th launch brings the first one; after that it shows up on 2.5% of launches.
     const logoOut = !!this.frenzy || this.items.some(i => i.fruit && i.alive) || this.queue.some(q => q.type === 'bitrock')
@@ -1139,13 +1141,16 @@ export class Engine {
     this.sfx.play('pop', { f: base * Math.pow(2, Math.min(this.strokeHits - 1, 7) / 6), n: this.strokeHits }); this.buzz(8)
     // "Perfetto": the cut passes within 10% of a radius from the centre (about 1 random cut in 10)
     const perfect = Math.abs(off) < 0.1, cp = this.toScreen(it.pos)
-    // "Critico": cut while falling with its centre in the bottom 15% of the screen, about to leave it
-    const critical = it.vel.y < 0 && it.pos.y < -this.viewH * 0.35
+    // "Critico": cut while falling with its centre in the bottom 30% of the screen, about to leave it
+    // (bubbles are fastest there: a narrower band left almost no time to hit them)
+    const critical = it.vel.y < 0 && it.pos.y < -this.viewH * 0.2
+    // every point is scaled by the difficulty (×1 facile, ×2 normale, ×3 difficile)
+    const mul = o.pts
     let pts = 1
     if (perfect) pts += 2
     if (critical) pts += 3
-    if (this.strokeHits >= 3) { pts += this.strokeHits === 3 ? 3 : 1; this.showCombo(this.strokeHits, cp.x, cp.y); this.bloomPulse = Math.max(this.bloomPulse, 0.5) }
-    this.score += pts
+    if (this.strokeHits >= 3) { const bonus = this.strokeHits === 3 ? 3 : 1; pts += bonus; this.showCombo(this.strokeHits, bonus * mul, cp.x, cp.y); this.bloomPulse = Math.max(this.bloomPulse, 0.5) }
+    this.score += pts * mul
     const upd: Partial<UIState> = { score: this.score }
     let reveal = false
     if (it.type === 'project') {
@@ -1227,7 +1232,8 @@ export class Engine {
 
   private fruitHit(a: Pt, b: Pt, hp: { x: number; y: number }) {
     const f = this.frenzy!, s = f.it.g.scale.x
-    f.hits++; this.score += 1; f.punch = 1
+    const mul = this.opt().pts
+    f.hits++; this.score += mul; f.punch = 1
     set({ score: this.score })
     const dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1, sx = dx / l, sy = dy / l
     f.from = { x: b.x, y: b.y }; f.travel = 0; f.dir = null
@@ -1241,7 +1247,7 @@ export class Engine {
       const vel = wd.clone().multiplyScalar((1.5 + Math.random() * 3) * s).add(new THREE.Vector3((Math.random() - 0.5) * 2.4 * s, (Math.random() - 0.5) * 2.4 * s, Math.random() * s))
       this.spark(wp, vel, ['#ffd27a', '#ff9a00', '#fff2dc'][i % 3], (0.17 + Math.random() * 0.13) * s, 0.35 + Math.random() * 0.3, 3 * s)
     }
-    this.fxText('+1', hp.x + (Math.random() - 0.5) * 30, hp.y - 24, false)
+    this.fxText('+' + mul, hp.x + (Math.random() - 0.5) * 30, hp.y - 24, false)
     const num = this.hudEl('num')
     if (num) { num.textContent = String(f.hits); num.animate([{ transform: 'scale(1.45)' }, { transform: 'scale(1)' }], { duration: 240, easing: 'cubic-bezier(.16,1,.3,1)' }) }
     this.sfx.play('pop', { f: 392 * Math.pow(2, Math.min(f.hits, 18) / 12), n: f.hits }); this.buzz(8)
@@ -1296,7 +1302,7 @@ export class Engine {
     const fx = this.hudEl('fx')
     if (fx) { const fl = document.createElement('div'); fl.className = 'fx-flash'; fx.appendChild(fl); this.timeout(() => fl.remove(), 600) }
     const c = this.toScreen(center)
-    this.fxText('+' + f.hits, c.x, c.y, true)
+    this.fxText('+' + f.hits * this.opt().pts, c.x, c.y, true)
     this.sfx.play('pop', { f: 784, n: 1 }); this.timeout(() => this.sfx.play('pop', { f: 784 * 1.5, n: 1 }), 90); this.buzz(30)
     this.after(0.5, () => {
       const o = this.opt()

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { CONFIG, type Settings } from './config'
+import { CONFIG, POINTS_MUL, type Settings } from './config'
 import type { Project } from './data/projects'
 
 const KEY_BEST = 'bitrock-labs-best'
@@ -131,6 +131,9 @@ export const useUI = create<UIState>(() => ({
 /** Player setting if set, otherwise the build-time default. */
 export const cfg = <K extends keyof Settings>(k: K, settings = useUI.getState().settings): Settings[K] =>
   settings[k] ?? CONFIG[k]
+
+/** Points multiplier of the current difficulty. */
+export const pointsMul = (settings = useUI.getState().settings) => POINTS_MUL[cfg('difficulty', settings)]
 
 export const setSetting = <K extends keyof Settings>(k: K, v: Settings[K]) => {
   const settings = { ...useUI.getState().settings, [k]: v }

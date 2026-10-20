@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { CTA_HREF, PROJECTS } from '../data/projects'
-import { useUI } from '../store'
+import { pointsMul, useUI } from '../store'
 import type { Actions } from './actions'
 import { ProjectList } from './ProjectList'
 
@@ -111,13 +111,14 @@ export function GameOver({ actions, leaving }: { actions: Actions; leaving?: boo
 
 export function Complete({ actions, leaving }: { actions: Actions; leaving?: boolean }) {
   const found = useUI(s => s.found)
+  const mul = useUI(s => pointsMul(s.settings))
   return (
     <div data-ui="1" className={'screen screen--complete' + (leaving ? ' is-leaving' : '')}>
       <div className="screen__body">
         <div className="stack gap-12">
           <div className="label label--lg complete__label">Progetti scoperti {found.length}/{PROJECTS.length}</div>
           <CompleteTitle />
-          <div className="complete__bonus outlined">Bonus +10</div>
+          <div className="complete__bonus outlined">Bonus +{10 * mul}</div>
         </div>
         <ProjectList onOpen={actions.openFromUI} mini all />
         <p className="complete__text">Ogni progetto di Labs è nato dalla curiosità di qualcuno del team. Se ti piace costruire cose così, parliamone.</p>

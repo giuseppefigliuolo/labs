@@ -37,6 +37,13 @@ export const CONFIG = {
   sfondo: 'legno' as Sfondo // (settings)
 }
 
+/**
+ * Points multiplier per difficulty, applied to every point scored (cuts, bonuses, frenzy, completion).
+ * Risk per second (launch rate × bug rate) is about 1 : 1.9 : 3.5 from facile to difficile; difficile
+ * also has 30% more bubbles to cut, so ×3 is enough there.
+ */
+export const POINTS_MUL: Record<Difficulty, number> = { facile: 1, normale: 2, difficile: 3 }
+
 export type Settings = {
   difficulty: Difficulty
   bugRule: BugRule
