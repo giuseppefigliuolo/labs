@@ -20,11 +20,11 @@ export const SHELL_F = `uniform vec3 uTint; uniform float uTime; uniform float u
     gl_FragColor = vec4(col*(0.55+fres*0.9) + vec3(spec+spec2), clamp(a,0.0,1.0)*uAlpha);
   }`
 
-// Logo plane inside the bubble; uSide/uCut clip it to one side of the cut line.
+// Logo plane inside the bubble; uSide/uCut/uH clip it to one side of the cut line (uH: its offset from the centre).
 export const LOGO_V = `varying vec2 vUv; varying vec2 vL; void main(){ vUv=uv; vL=position.xy; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`
 
-export const LOGO_F = `uniform sampler2D uMap; uniform vec2 uCut; uniform float uSide; uniform float uOpacity; varying vec2 vUv; varying vec2 vL;
-  void main(){ if(uSide != 0.0 && dot(vL,uCut)*uSide < 0.0) discard; vec4 c = texture2D(uMap, vUv); if(c.a < 0.01) discard; gl_FragColor = vec4(c.rgb, c.a*uOpacity); }`
+export const LOGO_F = `uniform sampler2D uMap; uniform vec2 uCut; uniform float uSide; uniform float uH; uniform float uOpacity; varying vec2 vUv; varying vec2 vL;
+  void main(){ if(uSide != 0.0 && (dot(vL,uCut)-uH)*uSide < 0.0) discard; vec4 c = texture2D(uMap, vUv); if(c.a < 0.01) discard; gl_FragColor = vec4(c.rgb, c.a*uOpacity); }`
 
 // Opaque sliced half with the logo projected onto its skin.
 // uMode: 0 solido, 1 lucido, 2 cartoon.

@@ -76,7 +76,8 @@ export class Engine {
   private camLook!: THREE.Vector3
   private uTime = { value: 0 }
   private sphereGeo!: THREE.SphereGeometry
-  private hemiGeo!: THREE.SphereGeometry
+  /** Sliced pieces: the unit sphere above y = -0.7 … 0.7 in steps of 0.1 (index 7 is a hemisphere). */
+  private pieceGeo: THREE.SphereGeometry[] = []
   private ringGeo!: THREE.TorusGeometry
   private glowGeo!: THREE.PlaneGeometry
   private discGeo!: THREE.CircleGeometry
@@ -261,7 +262,8 @@ export class Engine {
     this.camBase = this.camHome.clone(); this.camLook = new THREE.Vector3()
     const seg = q.seg
     this.sphereGeo = new THREE.SphereGeometry(1, seg, seg * 3 / 4)
-    this.hemiGeo = new THREE.SphereGeometry(1, seg, seg / 2, 0, Math.PI * 2, 0, Math.PI / 2)
+    // built up front: a geometry made on the slice frame would be one more allocation and upload right there
+    for (let i = 0; i <= 14; i++) { const th = Math.acos(i / 10 - 0.7); this.pieceGeo.push(new THREE.SphereGeometry(1, seg, Math.max(3, Math.round(seg / 2 * th / (Math.PI / 2))), 0, Math.PI * 2, 0, th)) }
     this.ringGeo = new THREE.TorusGeometry(1, 0.012, 6, 96)
     this.glowGeo = new THREE.PlaneGeometry(2.6, 2.6)
     this.discGeo = new THREE.CircleGeometry(0.97, 48)
@@ -392,6 +394,12 @@ export class Engine {
     const warm = [new THREE.Sprite(sparkMat), new THREE.Mesh(this.planeGeo, markMat)]
     this.scene.add(...warm)
     try { await r.compileAsync(this.scene, this.camera) } catch (e) { console.warn(e) }
+    // compiling doesn't upload vertex buffers: draw every piece geometry once offscreen, or the first slice
+    // of each size uploads its own on the slice frame
+    const rt = new THREE.WebGLRenderTarget(1, 1), tmp = new THREE.Scene(), tmpMat = new THREE.MeshBasicMaterial()
+    for (const geo of this.pieceGeo) { const m = new THREE.Mesh(geo, tmpMat); m.frustumCulled = false; tmp.add(m) }
+    r.setRenderTarget(rt); r.render(tmp, this.camera); r.setRenderTarget(null)
+    rt.dispose(); tmpMat.dispose()
     // drop the warm-up objects but keep their per-half materials referenced
     for (const h of this.halves) {
       h.g.traverse(o => { const m = (o as THREE.Mesh).material as THREE.Material | undefined; if (m && !m.userData.shared) this.keep.push(m) })
@@ -604,9 +612,9 @@ export class Engine {
     return new THREE.ShaderMaterial({ uniforms: { uTint: { value: new THREE.Color(tint) }, uTime: this.uTime, uAlpha: { value: alpha }, uDanger: { value: danger ? 1 : 0 } }, vertexShader: SHELL_V, fragmentShader: SHELL_F, transparent: true, depthWrite: false, side })
   }
 
-  private logoMesh(key: string, side: number, n?: THREE.Vector3) {
+  private logoMesh(key: string, side: number, n?: THREE.Vector3, h = 0) {
     const info = this.tex[key]
-    const make = () => new THREE.ShaderMaterial({ uniforms: { uMap: { value: info.tex }, uCut: { value: new THREE.Vector2(n ? n.x : 0, n ? n.y : 0) }, uSide: { value: side }, uOpacity: { value: 1 } }, vertexShader: LOGO_V, fragmentShader: LOGO_F, transparent: true, depthWrite: false, side: THREE.DoubleSide })
+    const make = () => new THREE.ShaderMaterial({ uniforms: { uMap: { value: info.tex }, uCut: { value: new THREE.Vector2(n ? n.x : 0, n ? n.y : 0) }, uSide: { value: side }, uH: { value: h }, uOpacity: { value: 1 } }, vertexShader: LOGO_V, fragmentShader: LOGO_F, transparent: true, depthWrite: false, side: THREE.DoubleSide })
     const m = new THREE.Mesh(info.geo, side ? make() : this.shared('logo|' + key, make)); m.renderOrder = 2; return m
   }
 
@@ -693,53 +701,72 @@ export class Engine {
     return this.fleshTex[this.fleshId(tint, key)] ??= new THREE.CanvasTexture(fleshCanvas(tint, key))
   }
 
-  private slice(it: Item, dir: Dir) {
+  /**
+   * The piece of the unit sphere above y = h in its own frame (h < 0: the bigger one), snapped to a
+   * pre-built geometry. y: its cut face, w: the face's radius, c: centroid distance from the sphere's
+   * centre, k: how much faster than a half it flies off (lighter pieces faster, as with equal momentum).
+   */
+  private piece(h: number) {
+    const i = Math.round((Math.max(-0.7, Math.min(0.7, h)) + 0.7) * 10), y = i / 10 - 0.7
+    const vol = (1 - y) * (1 - y) * (2 + y) / 4
+    return { geo: this.pieceGeo[i], y, w: Math.sqrt(1 - y * y), c: 3 * (1 + y) * (1 + y) / (4 * (2 + y)), k: Math.min(1.8, Math.sqrt(0.5 / vol)) }
+  }
+
+  /** Puts a unit disc/ring lying on a piece's local XZ plane onto its cut face. */
+  private onFace(o: THREE.Object3D, p: { y: number; w: number }) { o.rotation.x = Math.PI / 2; o.position.y = p.y; o.scale.setScalar(p.w) }
+
+  /** h: where the cut passes, in radii from the centre along the cut's normal (-dir.y, dir.x). */
+  private slice(it: Item, dir: Dir, h = 0) {
     this.removeItem(it)
     this.splash(it, dir)
     const n = new THREE.Vector3(-dir.y, dir.x, 0).normalize()
     const Y = new THREE.Vector3(0, 1, 0)
     const mode = ({ solido: 0, lucido: 1, cartoon: 2 } as Record<string, number>)[CONFIG.sliceStyle]
-    if (mode !== undefined) return this.sliceSolid(it, dir, n, Y, mode)
-    // 'trasparente': hollow glass halves with the logo clipped along the cut
+    if (mode !== undefined) return this.sliceSolid(it, dir, n, Y, mode, h)
+    // 'trasparente': hollow glass pieces with the logo clipped along the cut
     for (const side of [1, -1]) {
-      const hg = new THREE.Group(); hg.position.copy(it.pos); hg.scale.setScalar(it.r)
-      const hemi = new THREE.Mesh(this.hemiGeo, this.shellMat(it.tint, THREE.DoubleSide, 1, it.danger)); hemi.renderOrder = 3
-      hemi.quaternion.setFromUnitVectors(Y, n.clone().multiplyScalar(side))
+      const p = this.piece(side * h), off = n.clone().multiplyScalar(-side * p.c)
+      // the group sits on the piece's centroid, so it tumbles around itself and not around the old centre
+      const hg = new THREE.Group(); hg.position.copy(it.pos).addScaledVector(off, -it.r); hg.scale.setScalar(it.r)
+      const hemi = new THREE.Mesh(p.geo, this.shellMat(it.tint, THREE.DoubleSide, 1, it.danger)); hemi.renderOrder = 3
+      hemi.quaternion.setFromUnitVectors(Y, n.clone().multiplyScalar(side)); hemi.position.copy(off)
       const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(it.danger ? '#ff5a72' : '#ffffff'), transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending })
-      const ring = new THREE.Mesh(this.ringGeo, ringMat); ring.rotation.x = Math.PI / 2; ring.renderOrder = 4; hemi.add(ring)
-      const lh = this.logoMesh(it.key, side, n)
+      const ring = new THREE.Mesh(this.ringGeo, ringMat); this.onFace(ring, p); ring.renderOrder = 4; hemi.add(ring)
+      const lh = this.logoMesh(it.key, side, n, h); lh.position.copy(off)
       const fk = it.danger ? 'dark' : it.tint
-      const disc = new THREE.Mesh(this.discGeo, this.basic('disc|' + this.fleshId(fk, it.key), { map: this.flesh(fk, it.key), transparent: true, opacity: 0.94, depthWrite: false, side: THREE.DoubleSide })); disc.rotation.x = Math.PI / 2; disc.renderOrder = 2.5; hemi.add(disc)
+      const disc = new THREE.Mesh(this.discGeo, this.basic('disc|' + this.fleshId(fk, it.key), { map: this.flesh(fk, it.key), transparent: true, opacity: 0.94, depthWrite: false, side: THREE.DoubleSide })); this.onFace(disc, p); disc.renderOrder = 2.5; hemi.add(disc)
       hg.add(hemi, lh)
       const axis = new THREE.Vector3(dir.x, dir.y, 0).normalize()
       hg.rotateOnWorldAxis(axis, -side * 0.6)
-      if (it.danger) { const core = new THREE.Mesh(this.hemiGeo, this.basic('hcore', { color: new THREE.Color('#12040a'), transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide })); core.quaternion.copy(hemi.quaternion); core.scale.setScalar(0.96); core.renderOrder = 0.5; hg.add(core) }
+      if (it.danger) { const core = new THREE.Mesh(p.geo, this.basic('hcore', { color: new THREE.Color('#12040a'), transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide })); core.quaternion.copy(hemi.quaternion); core.position.copy(off); core.scale.setScalar(0.96); core.renderOrder = 0.5; hg.add(core) }
       this.scene.add(hg)
-      const vel = it.vel.clone().multiplyScalar(0.35).add(n.clone().multiplyScalar(side * it.r * 2.4)).add(new THREE.Vector3(dir.x, dir.y, 0).multiplyScalar(it.r * 1.2))
-      this.halves.push({ g: hg, vel, axis, tumble: -side * (1.2 + Math.random()), spinZ: side * (0.6 + Math.random() * 0.8), ringMat, age: 0, pos: hg.position })
+      const vel = it.vel.clone().multiplyScalar(0.35).add(n.clone().multiplyScalar(side * it.r * 2.4 * p.k)).add(new THREE.Vector3(dir.x, dir.y, 0).multiplyScalar(it.r * 1.2))
+      this.halves.push({ g: hg, vel, axis, tumble: -side * (1.2 + Math.random()) * p.k, spinZ: side * (0.6 + Math.random() * 0.8) * p.k, ringMat, age: 0, pos: hg.position })
     }
   }
 
-  private sliceSolid(it: Item, dir: Dir, n: THREE.Vector3, Y: THREE.Vector3, mode: number) {
+  private sliceSolid(it: Item, dir: Dir, n: THREE.Vector3, Y: THREE.Vector3, mode: number, h: number) {
     const axis = new THREE.Vector3(dir.x, dir.y, 0).normalize()
     const front = Math.random() < 0.5 ? 1 : -1
     const spread = 1.4 + Math.random() * 1.2
     for (const side of [1, -1]) {
-      const zs = side * front, push = it.r * 2.4 * spread * (0.8 + Math.random() * 0.4)
-      const hg = new THREE.Group(); hg.position.copy(it.pos); hg.position.z += zs * it.r * 0.35; hg.scale.setScalar(it.r)
+      const p = this.piece(side * h), off = n.clone().multiplyScalar(-side * p.c)
+      const zs = side * front, push = it.r * 2.4 * spread * (0.8 + Math.random() * 0.4) * p.k
+      const hg = new THREE.Group(); hg.position.copy(it.pos).addScaledVector(off, -it.r); hg.position.z += zs * it.r * 0.35; hg.scale.setScalar(it.r)
       const q = new THREE.Quaternion().setFromUnitVectors(Y, n.clone().multiplyScalar(side))
-      const hemi = new THREE.Mesh(this.hemiGeo, this.halfMat(it, q, mode)); hemi.quaternion.copy(q)
+      const hemi = new THREE.Mesh(p.geo, this.halfMat(it, q, mode)); hemi.quaternion.copy(q); hemi.position.copy(off)
       const fk = it.danger ? 'dark' : it.tint
-      const cap = new THREE.Mesh(this.capGeo, this.basic('cap|' + this.fleshId(fk, it.key), { map: this.flesh(fk, it.key), side: THREE.DoubleSide })); cap.rotation.x = Math.PI / 2; hemi.add(cap)
-      if (mode === 2) { const hull = new THREE.Mesh(this.hemiGeo, this.basic('hull', { color: new THREE.Color('#1a0d05'), side: THREE.BackSide })); hull.scale.setScalar(1.07); hemi.add(hull) }
+      const cap = new THREE.Mesh(this.capGeo, this.basic('cap|' + this.fleshId(fk, it.key), { map: this.flesh(fk, it.key), side: THREE.DoubleSide })); this.onFace(cap, p); hemi.add(cap)
+      // outline shell, shifted so its rim stays on the cut face
+      if (mode === 2) { const hull = new THREE.Mesh(p.geo, this.basic('hull', { color: new THREE.Color('#1a0d05'), side: THREE.BackSide })); hull.scale.setScalar(1.07); hull.position.y = -0.07 * p.y; hemi.add(hull) }
       const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(it.danger ? '#ff5a72' : '#ffffff'), transparent: true, opacity: mode === 2 ? 0 : 1, depthWrite: false, blending: THREE.AdditiveBlending })
-      const ring = new THREE.Mesh(this.ringGeo, ringMat); ring.rotation.x = Math.PI / 2; ring.renderOrder = 4; hemi.add(ring)
+      const ring = new THREE.Mesh(this.ringGeo, ringMat); this.onFace(ring, p); ring.renderOrder = 4; hemi.add(ring)
       hg.add(hemi)
       hg.rotateOnWorldAxis(axis, -side * 0.6)
       this.scene.add(hg)
       const vel = it.vel.clone().multiplyScalar(0.35).add(n.clone().multiplyScalar(side * push)).add(axis.clone().multiplyScalar(it.r * (0.8 + Math.random() * 0.9)))
       vel.z = zs * it.r * (0.8 + Math.random() * 0.6)
-      this.halves.push({ g: hg, vel, axis, tumble: -side * (1.2 + Math.random()), spinZ: side * (0.6 + Math.random() * 0.8), ringMat, age: 0, pos: hg.position })
+      this.halves.push({ g: hg, vel, axis, tumble: -side * (1.2 + Math.random()) * p.k, spinZ: side * (0.6 + Math.random() * 0.8) * p.k, ringMat, age: 0, pos: hg.position })
     }
   }
 
@@ -1089,14 +1116,15 @@ export class Engine {
         if (d < it.cut! * pxPerUnit && this.mode === 'play') { this.startFrenzy(it); this.fruitHit(a, b, { x: hx, y: hy }); return }
         continue
       }
-      // perp: distance of the cut from the centre, in radii (≈0 = perfect cut)
-      if (d < it.r * pxPerUnit * 0.95) this.hit(it, dir, Math.abs((c.x - a.x) * dy - (c.y - a.y) * dx) / Math.sqrt(L2) / (it.r * pxPerUnit))
+      // off: signed distance of the centre from the cut, in radii along the cut's normal (≈0 = perfect cut)
+      if (d < it.r * pxPerUnit * 0.95) this.hit(it, dir, ((c.x - a.x) * dy - (c.y - a.y) * dx) / Math.sqrt(L2) / (it.r * pxPerUnit))
     }
   }
 
-  private hit(it: Item, dir: Dir, perp = 1) {
+  private hit(it: Item, dir: Dir, off: number) {
     const o = this.opt(); this.lastDir = dir
-    this.slice(it, dir)
+    // the pieces split where the blade passed, eased to ±0.7 r so the thin side is still a piece and not a sliver
+    this.slice(it, dir, -off * 0.75)
     if (it.type === 'start') { this.sfx.play('start'); this.buzz(15); this.bloomPulse = 0.8 }
     if (it.type === 'bug') { this.sfx.play('bug'); this.buzz([40, 30, 90]); this.caPulse = 1; this.bloomPulse = 0.6 }
     if (it.type === 'start') { this.mode = 'starting'; set({ phase: 'starting' }); this.after(0.7, () => this.startGame()); return }
@@ -1110,7 +1138,7 @@ export class Engine {
     const idx = it.data ? PROJECTS.indexOf(it.data) : -1, base = [523, 587, 659, 784, 880, 1047][idx] || 660
     this.sfx.play('pop', { f: base * Math.pow(2, Math.min(this.strokeHits - 1, 7) / 6), n: this.strokeHits }); this.buzz(8)
     // "Perfetto": the cut passes within 10% of a radius from the centre (about 1 random cut in 10)
-    const perfect = perp < 0.1, cp = this.toScreen(it.pos)
+    const perfect = Math.abs(off) < 0.1, cp = this.toScreen(it.pos)
     // "Critico": cut while falling with its centre in the bottom 15% of the screen, about to leave it
     const critical = it.vel.y < 0 && it.pos.y < -this.viewH * 0.35
     let pts = 1
