@@ -34,7 +34,7 @@ export const CONFIG = {
   // Audio
   sound: true,
   // Sfondo
-  sfondo: 'legno' as Sfondo // (settings)
+  sfondo: 'ardesia' as Sfondo // (settings)
 }
 
 /**

@@ -46,6 +46,7 @@ export default function App() {
   const settingsOpen = useUI(s => s.settingsOpen)
   const listOpen = useUI(s => s.listOpen)
   const sfondo = useUI(s => cfg('sfondo', s.settings))
+  const soloGioco = useUI(s => cfg('soloGioco', s.settings))
   const popup = useUI(s => s.popup)
   const rotateHint = useUI(s => s.rotateHint)
   // kept mounted a little after closing, to fade out instead of vanishing
@@ -74,7 +75,7 @@ export default function App() {
         </div>
       )}
       {introOn && <Intro leaving={phase !== 'intro'} />}
-      {phase === 'play' && !complete && <Tray actions={actions} />}
+      {phase === 'play' && !complete && !soloGioco && <Tray actions={actions} />}
       {overOn && <GameOver actions={actions} leaving={phase !== 'over'} />}
       {completeOn && <Complete actions={actions} leaving={!complete} />}
       {listOpen && <ProjectSheet actions={actions} />}

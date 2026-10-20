@@ -49,6 +49,22 @@ type Drop = { x: number; y: number; vx: number; vy: number; r: number; col: stri
 type Confetto = { x: number; y: number; vx: number; vy: number; rot: number; vr: number; w: number; h: number; col: string; ph: number }
 type Wave = { x: number; y: number; t: number; col: string }
 
+type Rect = { l: number; t: number; r: number; b: number }
+
+/** Liang-Barsky: does the segment a→b cross the rectangle? */
+function segRect(a: Dir, b: Dir, r: Rect) {
+  const dx = b.x - a.x, dy = b.y - a.y
+  const p = [-dx, dx, -dy, dy], q = [a.x - r.l, r.r - a.x, a.y - r.t, r.b - a.y]
+  let t0 = 0, t1 = 1
+  for (let i = 0; i < 4; i++) {
+    if (p[i] === 0) { if (q[i] < 0) return false; continue }
+    const t = q[i] / p[i]
+    if (p[i] < 0) t0 = Math.max(t0, t); else t1 = Math.min(t1, t)
+    if (t0 > t1) return false
+  }
+  return true
+}
+
 const ui = () => useUI.getState()
 const set = (patch: Partial<UIState>) => useUI.setState(patch)
 
@@ -106,6 +122,8 @@ export class Engine {
   private sctx!: CanvasRenderingContext2D
   private tcan?: HTMLCanvasElement
   private tctx!: CanvasRenderingContext2D
+  /** Halves of the sliced "Labs" letters, over everything else; made on the first cut. */
+  private titleLayer?: HTMLElement
   /** Pixel ratio the 2D canvases were last sized with (their base transform). */
   private fxDpr = 1
   /** Canvases of faded stains, reused by the next slices. */
@@ -211,6 +229,7 @@ export class Engine {
     if (this.renderer) { this.renderer.dispose(); this.renderer.domElement.remove() }
     this.scan?.remove()
     this.tcan?.remove()
+    this.titleLayer?.remove()
     this.sfx.close()
   }
 
@@ -521,7 +540,8 @@ export class Engine {
   private opt() {
     const d = cfg('difficulty')
     return {
-      spawnMul: d === 'facile' ? 0.75 : d === 'difficile' ? 1.3 : 1,
+      // launch rate: 25% lower than the original tuning (0.75 / 1 / 1.3)
+      spawnMul: (d === 'facile' ? 0.75 : d === 'difficile' ? 1.3 : 1) * 0.75,
       bugMul: d === 'facile' ? 0.7 : d === 'difficile' ? 1.4 : 1,
       pts: pointsMul(),
       bugs: CONFIG.bugs,
@@ -1010,9 +1030,9 @@ export class Engine {
     // bug chance per launch: 7.5% at the start, up to 21% from 30 points on (×0.7 facile, ×1.4 difficile)
     if (o.bugs && this.spawnCount > 3 && Math.random() < (0.075 + 0.135 * prog) * o.bugMul) return { type: 'bug' }
     // one Bitrock logo at a time: none while another is flying, queued or in its frenzy.
-    // The 7th launch brings the first one; after that it shows up on 2.5% of launches.
+    // The 7th launch brings the first one; after that it shows up on 1.2% of launches.
     const logoOut = !!this.frenzy || this.items.some(i => i.fruit && i.alive) || this.queue.some(q => q.type === 'bitrock')
-    if (!logoOut && ((!this.bitrockSeen && this.spawnCount === 7) || Math.random() < 0.025)) return { type: 'bitrock', data: BITROCK }
+    if (!logoOut && ((!this.bitrockSeen && this.spawnCount === 7) || Math.random() < 0.012)) return { type: 'bitrock', data: BITROCK }
     const hidden = PROJECTS.filter(p => !this.found.includes(p.id))
     const pool = hidden.length && Math.random() < 0.65 ? hidden : PROJECTS
     return { type: 'project', data: pool[Math.floor(Math.random() * pool.length)] }
@@ -1082,6 +1102,7 @@ export class Engine {
     }
     if (speed > 1.1 && p.t - this.lastSwoosh > 200) { this.lastSwoosh = p.t; this.sfx.play('swoosh', { speed }) }
     this.trySlice(a, p)
+    if (this.mode === 'intro') this.trySliceTitle(a, p)
   }
 
   /**
@@ -1122,6 +1143,101 @@ export class Engine {
       // off: signed distance of the centre from the cut, in radii along the cut's normal (≈0 = perfect cut)
       if (d < it.r * pxPerUnit * 0.95) this.hit(it, dir, ((c.x - a.x) * dy - (c.y - a.y) * dx) / Math.sqrt(L2) / (it.r * pxPerUnit))
     }
+  }
+
+  // ---------- intro title ----------
+  /** The blade cuts the "Labs" letters it crosses, like the bubbles. */
+  private trySliceTitle(a: Pt, b: Pt) {
+    const letters = this.root.querySelectorAll<HTMLElement>('[data-labs-word] > *')
+    letters.forEach((el, i) => {
+      if (el.dataset.cut) return
+      const r = el.getBoundingClientRect(), l = r.left - this.rootX, t = r.top - this.rootY
+      // shrunk to the glyph's body: brushing the padding or the line box doesn't count
+      const mx = r.width * 0.09, my = r.height * 0.1
+      if (segRect(a, b, { l: l + mx, t: t + my, r: l + r.width - mx, b: t + r.height - my })) this.cutLetter(el, i, a, b, { l, t, r: l + r.width, b: t + r.height })
+    })
+  }
+
+  private cutLetter(el: HTMLElement, i: number, a: Pt, b: Pt, box: Rect) {
+    el.dataset.cut = '1'
+    const len = Math.hypot(b.x - a.x, b.y - a.y), d = { x: (b.x - a.x) / len, y: (b.y - a.y) / len }, n = { x: -d.y, y: d.x }
+    // the blade's line through the letter: the centre projected on it, in the letter's coordinates
+    const w = box.r - box.l, h = box.b - box.t, cx = box.l + w / 2, cy = box.t + h / 2
+    const k = (cx - a.x) * d.x + (cy - a.y) * d.y, P = { x: a.x + d.x * k - box.l, y: a.y + d.y * k - box.t }
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches, mv = reduced ? 0.15 : 1
+    const h1 = el.closest('h1'), fs = h1 ? getComputedStyle(h1) : null
+    const tube = el.querySelector<HTMLElement>('.intro__tube')
+
+    let layer = this.titleLayer
+    if (!layer) {
+      layer = this.titleLayer = document.createElement('div')
+      layer.setAttribute('aria-hidden', 'true')
+      Object.assign(layer.style, { position: 'absolute', inset: '0', pointerEvents: 'none', overflow: 'hidden' })
+    }
+    if (!layer.isConnected) this.root.appendChild(layer)
+
+    const K = 4000
+    for (const s of [-1, 1]) {
+      const wrap = document.createElement('div')
+      Object.assign(wrap.style, { position: 'absolute', left: box.l + 'px', top: box.t + 'px', width: w + 'px', height: h + 'px', whiteSpace: 'nowrap' })
+      if (fs) Object.assign(wrap.style, { fontFamily: fs.fontFamily, fontSize: fs.fontSize, fontWeight: fs.fontWeight, lineHeight: fs.lineHeight })
+      // the half-plane on side s of the cut
+      const p1 = { x: P.x - d.x * K, y: P.y - d.y * K }, p2 = { x: P.x + d.x * K, y: P.y + d.y * K }
+      wrap.style.clipPath = `polygon(${[p1, p2, { x: p2.x + n.x * K * s, y: p2.y + n.y * K * s }, { x: p1.x + n.x * K * s, y: p1.y + n.y * K * s }].map(q => `${q.x}px ${q.y}px`).join(',')})`
+      const clone = el.cloneNode(true) as HTMLElement
+      clone.removeAttribute('data-cut')
+      clone.style.animation = 'none'
+      const inner = clone.firstElementChild as HTMLElement | null
+      if (inner) inner.style.animation = 'none'
+      wrap.appendChild(clone)
+      layer.appendChild(wrap)
+      const ct = clone.querySelector<HTMLElement>('.intro__tube')
+      if (ct) this.breakNeon(ct)
+
+      // ballistic fall: pushed apart along the normal, carried along the blade, tossed up a little
+      const vx = (n.x * s * 220 + d.x * 90) * mv, vy = (n.y * s * 220 + d.y * 90 - 260) * mv, rot = s * (30 + Math.random() * 30) * mv, g = 1600 * mv
+      // fully opaque until it has dropped out of the bottom edge; with reduced motion it barely moves, so it fades instead
+      const drop = this.H - box.t + Math.max(w, h) * 1.5
+      const dur = reduced ? 0.5 : Math.min(3, (-vy + Math.sqrt(vy * vy + 2 * g * drop)) / g)
+      const frames: Keyframe[] = []
+      for (let f = 0; f <= 10; f++) {
+        const o = f / 10, tt = o * dur
+        frames.push({ offset: o, transform: `translate(${vx * tt}px, ${vy * tt + 0.5 * g * tt * tt}px) rotate(${rot * o}deg)`, ...(reduced && { opacity: o <= 0.6 ? 1 : (1 - o) / 0.4 }) })
+      }
+      const anim = wrap.animate(frames, { duration: dur * 1000, easing: 'linear', fill: 'forwards' })
+      anim.onfinish = () => wrap.remove()
+    }
+
+    // not opacity: labsIn fills both ways and would override it
+    el.style.visibility = 'hidden'
+    this.sfx.play('pop', { f: [523, 659, 784, 1047][i] ?? 660, n: 1 }); this.buzz(8)
+    if (tube) this.sfx.noise(0.22, { filter: 'highpass', f: 3500, to: 1800, vol: 0.07 })
+
+    this.timeout(() => {
+      if (!el.isConnected) return
+      el.style.visibility = ''; delete el.dataset.cut
+      el.animate([{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1.1)', offset: 0.7 }, { transform: 'scale(1)', opacity: 1 }], { duration: 500, easing: 'cubic-bezier(.16,1,.3,1)' })
+    }, 1600)
+  }
+
+  /**
+   * A cut neon tube sputters and goes dark: a few flickers, then dim glass. Its light core dies with it.
+   * The glow is a lit copy over the dark tube that only fades in and out: animating the drop-shadow filter
+   * itself can't run on the compositor and would re-raster three wide blurs per half on every frame.
+   */
+  private breakNeon(tube: HTMLElement) {
+    const core = tube.nextElementSibling as HTMLElement | null
+    const glow = tube.cloneNode(true) as HTMLElement
+    Object.assign(glow.style, { position: 'absolute', inset: '0 .05em', animation: 'none' })
+    tube.after(glow)
+    Object.assign(tube.style, { animation: 'none', filter: 'drop-shadow(0 0 .02em rgba(255,106,0,.18))', opacity: '.45' })
+    const flicker = (on: number, off: number): Keyframe[] => [
+      { offset: 0, opacity: 1 }, { offset: 0.08, opacity: 1 }, { offset: 0.12, opacity: off }, { offset: 0.2, opacity: on },
+      { offset: 0.26, opacity: off }, { offset: 0.34, opacity: on }, { offset: 0.42, opacity: 0 }, { offset: 1, opacity: 0 }
+    ]
+    glow.animate(flicker(1, 0), { duration: 700, fill: 'forwards' })
+    core?.animate(flicker(0.8, 0.2), { duration: 700, fill: 'forwards' })
+    tube.animate([{ webkitTextStrokeColor: '#ff9a00' }, { webkitTextStrokeColor: '#7a3a10' }], { duration: 700, fill: 'forwards' })
   }
 
   private hit(it: Item, dir: Dir, off: number) {

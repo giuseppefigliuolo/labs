@@ -10,7 +10,8 @@ export function Intro({ leaving }: { leaving?: boolean }) {
   return (
     <div className={'intro' + (leaving ? ' is-leaving' : '')}>
       <h1 className="intro__title" aria-label="Labs">
-        <span className="intro__word" aria-hidden="true">
+        {/* the engine slices the direct children of [data-labs-word]: one span per letter */}
+        <span className="intro__word" aria-hidden="true" data-labs-word="1">
           {[...'Labs'].map((ch, i) => (
             <span key={i} className="intro__letter" style={{ '--i': i } as CSSProperties}>
               <span className="intro__float">
